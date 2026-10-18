@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using UnityEngine;
 using TMPro;
 
@@ -32,6 +32,30 @@ public class SecretCodeWall : MonoBehaviour
         }
     }
 
+    private void Start()
+    {
+        string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        bool candleDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("candle"))
+                          || PlayerPrefs.GetInt($"{sceneName}_Task_candle", 0) == 1
+                          || PlayerPrefs.GetInt("HasItem_SecretCode", 0) == 1;
+
+        if (candleDone)
+        {
+            isRevealed = true;
+            isCollected = true;
+            
+            // يختفي كود الجدار لأنه تم نقله وحفظه داخل الحقيبة
+            gameObject.SetActive(false);
+
+            // ضمان بقاء ورقة الكود محفوظة داخل الحقيبة بأيقونتها الصحيحة دائماً
+            if (InventoryManager.Instance != null && !InventoryManager.Instance.HasItem(itemID))
+            {
+                Sprite iconToUse = noteIcon != null ? noteIcon : InventoryManager.GetNoteSprite();
+                InventoryManager.Instance.AddItem(itemID, iconToUse, false);
+            }
+        }
+    }
+
     /// <summary>
     /// يتم استدعاؤها من CandlePuzzle عند إشعال الشمعة
     /// </summary>
@@ -46,6 +70,7 @@ public class SecretCodeWall : MonoBehaviour
     private IEnumerator FadeInAndCollectRoutine()
     {
         isRevealed = true;
+        ProceduralAudioGenerator.PlaySound("magic_chime", 0.9f);
         float alpha = 0f;
 
         // ظهور تدريجي للكود على الجدار
@@ -75,6 +100,11 @@ public class SecretCodeWall : MonoBehaviour
         if (isCollected) return;
         isCollected = true;
 
+        string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        PlayerPrefs.SetInt($"{sceneName}_Task_candle", 1);
+        PlayerPrefs.SetInt("HasItem_SecretCode", 1);
+        PlayerPrefs.Save();
+
         if (InventoryManager.Instance != null)
         {
             Sprite iconToUse = noteIcon;
@@ -86,10 +116,11 @@ public class SecretCodeWall : MonoBehaviour
             }
 
             InventoryManager.Instance.AddItem(itemID, iconToUse);
+            ProceduralAudioGenerator.PlaySound("pickup", 0.8f);
             Debug.Log("<color=green>[الكود السري]:</color> تم حفظ ورقة الكود بأيقونتها المخصصة في الحقيبة!");
         }
 
-        // إخفاء الكائن من الجدار نهائياً
+        // يختفي كود الجدار فور انتقاله للحقيبة
         gameObject.SetActive(false);
     }
 

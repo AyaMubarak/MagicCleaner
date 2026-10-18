@@ -23,7 +23,7 @@ public class CollectibleItem : MonoBehaviour
         if (Input.GetMouseButtonDown(0))
         {
             Camera cam = Camera.main;
-            if (cam == null) cam = FindFirstObjectByType<Camera>();
+            if (cam == null) cam = FindAnyObjectByType<Camera>();
             if (cam == null) return;
 
             Ray ray = cam.ScreenPointToRay(Input.mousePosition);

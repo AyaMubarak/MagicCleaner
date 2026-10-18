@@ -26,7 +26,7 @@ public class StairsClimber : MonoBehaviour
         if (Input.GetMouseButtonDown(0))
         {
             Camera cam = Camera.main;
-            if (cam == null) cam = FindFirstObjectByType<Camera>();
+            if (cam == null) cam = FindAnyObjectByType<Camera>();
             if (cam == null) return;
 
             Ray ray = cam.ScreenPointToRay(Input.mousePosition);
@@ -64,7 +64,7 @@ public class StairsClimber : MonoBehaviour
         }
 
         GameObject player = GameObject.FindGameObjectWithTag("Player");
-        if (player == null) player = FindFirstObjectByType<CharacterController>()?.gameObject;
+        if (player == null) player = FindAnyObjectByType<CharacterController>()?.gameObject;
 
         if (player != null)
         {

@@ -39,6 +39,10 @@ public class LevelsMenuManager : MonoBehaviour
     public Color continueColor = new Color(0.2f, 0.85f, 1f, 1f); // أزرق سماوي مضيء لـ CONTINUE
     public Color lockedColor = new Color(0.6f, 0.6f, 0.6f, 0.7f);
 
+    [Header("أيقونات القفل")]
+    public Sprite openLockSprite;
+    public Sprite closedLockSprite;
+
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void OnSceneLoadedDirectCheck()
     {
@@ -49,7 +53,7 @@ public class LevelsMenuManager : MonoBehaviour
             PlayerPrefs.DeleteKey("OpenLevelsDirectly");
             PlayerPrefs.Save();
 
-            LevelsMenuManager[] managers = Object.FindObjectsByType<LevelsMenuManager>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            LevelsMenuManager[] managers = Object.FindObjectsByType<LevelsMenuManager>(FindObjectsInactive.Include);
             if (managers != null && managers.Length > 0)
             {
                 LevelsMenuManager mgr = managers[0];
@@ -62,6 +66,13 @@ public class LevelsMenuManager : MonoBehaviour
                     mgr.gameObject.SetActive(true);
                 }
                 mgr.OpenLevelsMenu();
+            }
+
+            // تفعيل توهج زر LEVELS وإطفاء PLAY في القائمة الرئيسية
+            MainMenuNavigation nav = Object.FindAnyObjectByType<MainMenuNavigation>();
+            if (nav != null)
+            {
+                nav.SelectLevels();
             }
         }
     }
@@ -76,6 +87,28 @@ public class LevelsMenuManager : MonoBehaviour
     {
         CheckDirectOpen();
         UpdateLevelsState();
+        SetupPlayButtonDirectLaunch();
+    }
+
+    private void SetupPlayButtonDirectLaunch()
+    {
+        // ربط زر PLAY في الواجهة الرئيسية ليبدأ اللعبة فوراً بتشغيل الفيديو الأول ثم الدخول للمرحلة الأولى مباشرة
+        GameObject playBtnObj = GameObject.Find("Btn_Play");
+        if (playBtnObj != null)
+        {
+            Button playBtn = playBtnObj.GetComponent<Button>();
+            if (playBtn != null)
+            {
+                playBtn.onClick.RemoveListener(PlayGameDirectly);
+                playBtn.onClick.AddListener(PlayGameDirectly);
+            }
+        }
+    }
+
+    public void PlayGameDirectly()
+    {
+        // تشغيل فيديو البداية ثم الدخول مباشرة للمرحلة الأولى بدون الحاجة لفتح القائمة والضغط على الليفل
+        StartCoroutine(LoadSceneFast(room1SceneName, null));
     }
 
     private void OnEnable()
@@ -119,9 +152,16 @@ public class LevelsMenuManager : MonoBehaviour
     {
         ResolveTextReferences();
 
-        bool isRoom1Done = PlayerPrefs.GetInt("Room1_Done", 0) == 1 || PlayerPrefs.GetInt("Level1_Done", 0) == 1;
+        float room1Pct = PlayerPrefs.GetFloat($"{room1SceneName}_ProgressPct", 0f);
+        bool isRoom1Done = PlayerPrefs.GetInt("Room1_Done", 0) == 1 || 
+                           PlayerPrefs.GetInt("Level1_Done", 0) == 1 || 
+                           PlayerPrefs.GetInt("Room1_Won", 0) == 1 ||
+                           room1Pct >= 0.99f || Mathf.RoundToInt(room1Pct * 100f) >= 100;
+
         bool isRoom2Done = PlayerPrefs.GetInt("Room2_Done", 0) == 1 || PlayerPrefs.GetInt("Level2_Done", 0) == 1;
         bool isRoom3Done = PlayerPrefs.GetInt("Room3_Done", 0) == 1 || PlayerPrefs.GetInt("Level3_Done", 0) == 1;
+
+        bool isRoom2Unlocked = isRoom1Done;
 
         // ================= LEVEL 1 =================
         SetupLevelSlot(
@@ -136,7 +176,7 @@ public class LevelsMenuManager : MonoBehaviour
         // ================= LEVEL 2 =================
         SetupLevelSlot(
             isCompleted: isRoom2Done,
-            isUnlocked: isRoom1Done,
+            isUnlocked: isRoom2Unlocked,
             button: room2Button,
             buttonText: room2Text,
             completedUI: room2CompletedUI,
@@ -159,6 +199,12 @@ public class LevelsMenuManager : MonoBehaviour
         float progressPct = PlayerPrefs.GetFloat($"{sceneName}_ProgressPct", 0f);
         bool hasStarted = PlayerPrefs.GetInt($"{sceneName}_Started", 0) == 1;
 
+        // إذا وصلت نسبة الإنجاز 100% تعتبر المرحلة مكتملة فوراً
+        if (progressPct >= 0.99f || Mathf.RoundToInt(progressPct * 100f) >= 100)
+        {
+            isCompleted = true;
+        }
+
         if (button != null)
         {
             button.gameObject.SetActive(true);
@@ -166,7 +212,7 @@ public class LevelsMenuManager : MonoBehaviour
 
         if (isCompleted)
         {
-            // المرحلة مكتملة: إظهار بانر Completed والإطار الذهبي
+            // المرحلة مكتملة (100%): إظهار بانر COMPLETED الأخضر والإطار الذهبي (وليس CONTINUE)
             if (completedUI != null)
             {
                 completedUI.SetActive(true);
@@ -175,11 +221,39 @@ public class LevelsMenuManager : MonoBehaviour
                 Transform goldenBorder = completedUI.transform.Find("Image");
                 if (goldenBorder != null) goldenBorder.gameObject.SetActive(true);
 
+                // النص يظهر COMPLETED بشكل احترافي وواضح
+                TextMeshProUGUI compText = completedUI.GetComponentInChildren<TextMeshProUGUI>();
+                if (compText != null)
+                {
+                    compText.text = "COMPLETED";
+                    compText.fontStyle = FontStyles.Bold;
+                    compText.fontSize = 24f;
+                    compText.color = Color.white;
+                    compText.alignment = TextAlignmentOptions.Center;
+                }
+
                 Button replayBtn = completedUI.GetComponent<Button>();
                 if (replayBtn == null) replayBtn = completedUI.AddComponent<Button>();
                 replayBtn.interactable = true;
                 replayBtn.onClick.RemoveAllListeners();
-                replayBtn.onClick.AddListener(() => StartCoroutine(LoadSceneFast(sceneName, replayBtn)));
+                replayBtn.onClick.AddListener(() =>
+                {
+                    // إعادة المرحلة من البداية: تصفير تقدم هذا المستوى بالكامل لتبدأ كل ألغازه وعناصره من الصفر
+                    ResetSceneData(sceneName);
+                    StartCoroutine(LoadSceneFast(sceneName, replayBtn));
+                });
+            }
+
+            if (button != null)
+            {
+                // الضغط على البطاقة أيضاً يسمح بالدخول وإعادة اللعبة من البداية
+                button.interactable = true;
+                button.onClick.RemoveAllListeners();
+                button.onClick.AddListener(() =>
+                {
+                    ResetSceneData(sceneName);
+                    StartCoroutine(LoadSceneFast(sceneName, button));
+                });
             }
 
             if (buttonText != null)
@@ -208,24 +282,39 @@ public class LevelsMenuManager : MonoBehaviour
             {
                 buttonText.gameObject.SetActive(true);
 
-                // Make sure text doesn't wrap or get cut off
+                // Make sure text doesn't wrap or get cut off and fits cleanly
                 buttonText.textWrappingMode = TextWrappingModes.NoWrap;
                 buttonText.overflowMode = TextOverflowModes.Ellipsis;
                 buttonText.alignment = TextAlignmentOptions.Center;
+                buttonText.fontStyle = FontStyles.Bold;
+                buttonText.characterSpacing = 1.5f;
 
-                // إذا بدأ اللاعب ولم ينهِ -> CONTINUE بلون أبيض ناصع، وإلا -> START
+                // وضعية وحجم النص ليملأ مساحة الزر بشكل متناسق وموزون
+                RectTransform txtRt = buttonText.rectTransform;
+                if (txtRt != null)
+                {
+                    txtRt.anchoredPosition = new Vector2(20f, -252f);
+                    txtRt.sizeDelta = new Vector2(250f, 44f);
+                }
+
+                // إذا بدأ اللاعب ولم ينهِ -> CONTINUE (33%) بلون متناسق وواضح، وإلا -> START
                 if (hasStarted || progressPct > 0f)
                 {
-                    buttonText.text = "CONTINUE";
-                    buttonText.color = Color.white; // كقيمة بيضاء ناصعة كما طلب
-                    buttonText.fontSize = Mathf.Min(buttonText.fontSize, 20f); // حجم مناسب لا ينكسر لسطرين
+                    int pct = Mathf.RoundToInt(progressPct * 100f);
+                    buttonText.text = $"CONTINUE  ({pct}%)";
+                    buttonText.color = Color.white;
+                    buttonText.fontSize = 20f;
                 }
                 else
                 {
                     buttonText.text = "START";
                     buttonText.color = Color.white;
+                    buttonText.fontSize = 22f;
                 }
             }
+
+            // ضبط موضع وحجم أيقونة الفتح أو إخفائها إن كانت تشوش على النص
+            AdjustButtonIcon(button, true);
         }
         else
         {
@@ -240,110 +329,175 @@ public class LevelsMenuManager : MonoBehaviour
             if (buttonText != null)
             {
                 buttonText.gameObject.SetActive(true);
+                buttonText.textWrappingMode = TextWrappingModes.NoWrap;
+                buttonText.overflowMode = TextOverflowModes.Ellipsis;
+                buttonText.alignment = TextAlignmentOptions.Center;
+                buttonText.fontStyle = FontStyles.Bold;
+                buttonText.characterSpacing = 2.5f;
                 buttonText.text = "LOCKED";
                 buttonText.color = lockedColor;
+                buttonText.fontSize = 22f;
+
+                RectTransform txtRt = buttonText.rectTransform;
+                if (txtRt != null)
+                {
+                    txtRt.anchoredPosition = new Vector2(20f, -252f);
+                    txtRt.sizeDelta = new Vector2(220f, 44f);
+                }
             }
+
+            AdjustButtonIcon(button, false);
         }
 
         UpdateMiniProgressBar(button, sceneName, progressPct, isCompleted, isUnlocked);
+    }
+
+    private static Sprite cachedOpenLockSprite = null;
+    private static Sprite cachedClosedLockSprite = null;
+
+    private void AdjustButtonIcon(Button button, bool isUnlocked)
+    {
+        if (button == null) return;
+
+        // البحث عن أيقونة القفل "new icons" التابعة للزر
+        Transform iconT = button.transform.Find("new icons");
+        if (iconT != null)
+        {
+            RectTransform iconRt = iconT.GetComponent<RectTransform>();
+            Image iconImg = iconT.GetComponent<Image>();
+
+            if (iconRt != null)
+            {
+                // محاذاة الأيقونة في موقع بعيد بمسافة كافية وأنيقة عن كلمة START / CONTINUE
+                iconRt.anchoredPosition = new Vector2(-135f, -252f);
+                iconRt.sizeDelta = new Vector2(65f, 65f);
+                iconRt.localScale = Vector3.one;
+            }
+
+            if (iconImg != null)
+            {
+                if (isUnlocked)
+                {
+                    // تحميل أيقونة القفل المفتوح (Open Padlock)
+                    if (openLockSprite != null)
+                    {
+                        cachedOpenLockSprite = openLockSprite;
+                    }
+
+                    if (cachedOpenLockSprite == null)
+                    {
+                        cachedOpenLockSprite = Resources.Load<Sprite>("padlock") ?? 
+                                               Resources.Load<Sprite>("padlock_0");
+                        if (cachedOpenLockSprite == null)
+                        {
+                            Sprite[] allSprites = Resources.FindObjectsOfTypeAll<Sprite>();
+                            foreach (var s in allSprites)
+                            {
+                                if (s != null && (s.name == "padlock_0" || s.name == "padlock"))
+                                {
+                                    cachedOpenLockSprite = s;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if (cachedOpenLockSprite != null)
+                    {
+                        iconImg.sprite = cachedOpenLockSprite;
+                    }
+
+                    // لون الأيقونة في المرحلة المفتوحة مشرق بلون ذهبي ناصع متناسق
+                    iconImg.color = new Color(1f, 0.85f, 0.4f, 1f);
+                }
+                else
+                {
+                    // قفل مغلق للمراحل المقفلة LOCKED
+                    if (closedLockSprite != null)
+                    {
+                        cachedClosedLockSprite = closedLockSprite;
+                    }
+
+                    if (cachedClosedLockSprite == null)
+                    {
+                        Sprite[] allSprites = Resources.FindObjectsOfTypeAll<Sprite>();
+                        foreach (var s in allSprites)
+                        {
+                            if (s != null && (s.name == "padlock (1)_0" || s.name == "padlock (1)"))
+                            {
+                                cachedClosedLockSprite = s;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (cachedClosedLockSprite != null)
+                    {
+                        iconImg.sprite = cachedClosedLockSprite;
+                    }
+
+                    // لون الأيقونة في المرحلة المقفلة هادئ مع النص
+                    iconImg.color = new Color(0.85f, 0.85f, 0.85f, 0.8f);
+                }
+            }
+        }
     }
 
     private void UpdateMiniProgressBar(Button button, string sceneName, float progressPct, bool isCompleted, bool isUnlocked)
     {
         if (button == null) return;
 
+        // إزالة أي بار كان قد أُنشئ سابقاً بالكامل حتى لا يظهر أي أثر له
         string barName = "MiniProgressHUD_" + sceneName;
         Transform existing = button.transform.Find(barName);
-
-        // إظهار شريط التقدم الصغير فقط عندما تكون المرحلة بدأت وبها تقدم ولم تكتمل
-        bool shouldShow = isUnlocked && !isCompleted && progressPct > 0f;
-
-        if (!shouldShow)
+        if (existing != null)
         {
-            if (existing != null) existing.gameObject.SetActive(false);
-            return;
+            Destroy(existing.gameObject);
         }
-
-        GameObject barObj;
-        Image fillImg = null;
-        TextMeshProUGUI labelText = null;
-
-        if (existing == null)
-        {
-            barObj = new GameObject(barName);
-            barObj.transform.SetParent(button.transform, false);
-
-            RectTransform rt = barObj.AddComponent<RectTransform>();
-            rt.anchorMin = new Vector2(0.5f, 0f);
-            rt.anchorMax = new Vector2(0.5f, 0f);
-            rt.pivot = new Vector2(0.5f, 1f);
-            rt.anchoredPosition = new Vector2(0, -14); // مسافة مريحة أسفل الزر تماماً
-            rt.sizeDelta = new Vector2(230, 22); // بار عريض وواضح
-
-            Image bg = barObj.AddComponent<Image>();
-            bg.color = new Color(0.04f, 0.06f, 0.10f, 0.95f);
-
-            GameObject fillObj = new GameObject("Fill");
-            fillObj.transform.SetParent(barObj.transform, false);
-            RectTransform fillRt = fillObj.AddComponent<RectTransform>();
-            fillRt.anchorMin = Vector2.zero;
-            fillRt.anchorMax = Vector2.one;
-            fillRt.offsetMin = new Vector2(2, 2);
-            fillRt.offsetMax = new Vector2(-2, -2);
-
-            fillImg = fillObj.AddComponent<Image>();
-            fillImg.color = new Color(0.0f, 0.88f, 0.58f, 1f);
-            fillImg.type = Image.Type.Filled;
-            fillImg.fillMethod = Image.FillMethod.Horizontal;
-            fillImg.fillOrigin = (int)Image.OriginHorizontal.Left;
-
-            GameObject textObj = new GameObject("PctText");
-            textObj.transform.SetParent(barObj.transform, false);
-            RectTransform textRt = textObj.AddComponent<RectTransform>();
-            textRt.anchorMin = Vector2.zero;
-            textRt.anchorMax = Vector2.one;
-            textRt.offsetMin = Vector2.zero;
-            textRt.offsetMax = Vector2.zero;
-
-            labelText = textObj.AddComponent<TextMeshProUGUI>();
-            labelText.fontSize = 13;
-            labelText.fontStyle = FontStyles.Bold;
-            labelText.alignment = TextAlignmentOptions.Center;
-            labelText.color = Color.white;
-        }
-        else
-        {
-            barObj = existing.gameObject;
-            barObj.SetActive(true);
-
-            RectTransform rt = barObj.GetComponent<RectTransform>();
-            if (rt != null)
-            {
-                rt.anchorMin = new Vector2(0.5f, 0f);
-                rt.anchorMax = new Vector2(0.5f, 0f);
-                rt.pivot = new Vector2(0.5f, 1f);
-                rt.anchoredPosition = new Vector2(0, -14);
-                rt.sizeDelta = new Vector2(230, 22);
-            }
-
-            Transform fillT = barObj.transform.Find("Fill");
-            if (fillT != null) fillImg = fillT.GetComponent<Image>();
-
-            Transform textT = barObj.transform.Find("PctText");
-            if (textT != null)
-            {
-                labelText = textT.GetComponent<TextMeshProUGUI>();
-                if (labelText != null) labelText.fontSize = 13;
-            }
-        }
-
-        if (fillImg != null) fillImg.fillAmount = progressPct;
-        if (labelText != null) labelText.text = $"{Mathf.RoundToInt(progressPct * 100f)}% COMPLETED";
     }
 
     private IEnumerator LoadSceneFast(string sceneName, Button btn)
     {
         if (btn != null) btn.interactable = false;
+
+        bool isLevel1 = (sceneName == room1SceneName);
+
+        // التحقق إن كانت المرحلة في حالة CONTINUE (تم البدء بها أو هناك تقدم) أو جديدة
+        float progressPct = PlayerPrefs.GetFloat($"{sceneName}_ProgressPct", 0f);
+        bool hasStarted = PlayerPrefs.GetInt($"{sceneName}_Started", 0) == 1;
+        bool isContinueState = hasStarted || progressPct > 0f;
+
+        // 1. إذا كانت المرحلة الأولى: تشغيل فيديو البداية فقط إذا كان الليفل جديداً (ولأول مرة في اللعبة كلها)، وممنوع عرضه بحالة CONTINUE
+        bool introAlreadyPlayed = PlayerPrefs.GetInt("IntroVideo_PlayedOnce", 0) == 1;
+        if (isLevel1 && !isContinueState && !introAlreadyPlayed && UniversalVideoPlayer.Instance != null &&
+            (UniversalVideoPlayer.Instance.backstoryVideoClip != null || !string.IsNullOrEmpty(UniversalVideoPlayer.Instance.backstoryVideoUrl)))
+        {
+            bool proceed = false;
+            bool cancelled = false;
+
+            UniversalVideoPlayer.Instance.TryPlayBackstory(
+                onFinishCallback: () => { proceed = true; },
+                onBackCallback: () => { cancelled = true; }
+            );
+
+            while (!proceed && !cancelled)
+            {
+                yield return null;
+            }
+
+            if (cancelled)
+            {
+                if (btn != null) btn.interactable = true;
+                yield break; // إلغاء الدخول والرجوع لقائمة المستويات
+            }
+        }
+        // 2. إذا كانت مرحلة تالية (Room2, Room3...): الدخول مباشرة لبدء اللعبة
+        // (حيث أن فيديو الانتقال تم عرضه بالفعل عند إنهاء المرحلة السابقة وفتح الباب)
+        else if (!isLevel1)
+        {
+            // دخول فوري ومباشر لبدء المرحلة الثانية
+        }
+
         AsyncOperation asyncLoad = SceneManager.LoadSceneAsync(sceneName);
         while (!asyncLoad.isDone)
         {
@@ -360,7 +514,7 @@ public class LevelsMenuManager : MonoBehaviour
         }
 
         // إضاءة زر LEVELS في القائمة وإطفاء باقي التوهجات
-        MainMenuNavigation nav = FindFirstObjectByType<MainMenuNavigation>();
+        MainMenuNavigation nav = FindAnyObjectByType<MainMenuNavigation>();
         if (nav != null)
         {
             nav.SelectLevels();
@@ -374,11 +528,56 @@ public class LevelsMenuManager : MonoBehaviour
             levelsPanel.SetActive(false);
         }
 
-        MainMenuNavigation nav = FindFirstObjectByType<MainMenuNavigation>();
+        MainMenuNavigation nav = FindAnyObjectByType<MainMenuNavigation>();
         if (nav != null)
         {
             nav.ClearAllGlows();
         }
+    }
+
+    private void ResetSceneData(string sceneName)
+    {
+        if (string.IsNullOrEmpty(sceneName)) return;
+
+        // قائمة المهمات والألغاز المربوطة بالمشهد
+        string[] taskIds = new string[] { "trash", "dust", "candle", "chest", "key", "door" };
+        foreach (string t in taskIds)
+        {
+            PlayerPrefs.DeleteKey($"{sceneName}_Task_{t}");
+        }
+
+        // مسح نسبة الإنجاز وحالة البدء لهذا المشهد فقط
+        PlayerPrefs.DeleteKey($"{sceneName}_ProgressPct");
+        PlayerPrefs.DeleteKey($"{sceneName}_Started");
+
+        // مسح حالة الفوز للغرفة الأولى حتى تعود الغبرة والعتمة وتبدأ اللعبة من الأول والجديد
+        if (sceneName == room1SceneName || sceneName == "Room1")
+        {
+            PlayerPrefs.DeleteKey("Room1_Done");
+            PlayerPrefs.DeleteKey("Room1_Won");
+            PlayerPrefs.DeleteKey("Room1_DoorOpened");
+            PlayerPrefs.DeleteKey("Level1_Done");
+            PlayerPrefs.DeleteKey("Room2_Unlocked");
+            PlayerPrefs.DeleteKey("Level2_Unlocked");
+        }
+
+        // مسح مفاتيح مشاهدة الفيديوهات حتى تعود للعمل مع اللعبة الجديدة
+        PlayerPrefs.DeleteKey("IntroVideo_PlayedOnce");
+        PlayerPrefs.DeleteKey("ItemVideo_Played_Book");
+        PlayerPrefs.DeleteKey("ItemVideo_Played_Wall");
+        PlayerPrefs.DeleteKey("BackstoryVideoPlayed");
+        PlayerPrefs.DeleteKey("ItemVideo_Played_SecretBook");
+        PlayerPrefs.DeleteKey("ItemVideo_Played_Candle");
+        PlayerPrefs.DeleteKey("ItemVideo_Played_SecretCode");
+        PlayerPrefs.DeleteKey("ItemVideo_Played_WallSecretCode");
+        PlayerPrefs.DeleteKey("Video_Played_gemini_generated_video_45dcfa05");
+        PlayerPrefs.DeleteKey("Video_Played_gemini_generated_video_ff76d4f1");
+
+        // مسح محتويات الحقيبة لبدء اللعبة من جديد
+        InventoryManager.ResetInventoryData();
+
+        PlayerPrefs.Save();
+        Debug.Log($"<color=cyan>[LevelsMenu]:</color> Scene data for '{sceneName}' was reset for fresh replay.");
     }
 
     [ContextMenu("Reset All Progress")]

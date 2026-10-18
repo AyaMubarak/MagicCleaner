@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -28,6 +28,7 @@ public class InventoryManager : MonoBehaviour
         public Sprite icon;
     }
 
+    private static List<InventoryEntry> persistentItems = new List<InventoryEntry>();
     private List<InventoryEntry> inventoryItems = new List<InventoryEntry>();
     public string SelectedItem { get; private set; } = "";
 
@@ -48,20 +49,301 @@ public class InventoryManager : MonoBehaviour
         if (inspectBookPanel != null) inspectBookPanel.SetActive(false);
         if (notePreviewPanel != null) notePreviewPanel.SetActive(false);
 
-        if (slotButtons != null)
+        RepositionBagButton();
+
+        // Ø¯Ø§Ø¦Ù…Ø§Ù‹ Ø§Ø³ØªØ±Ø¬Ø§Ø¹ ÙˆØªØ£ÙƒÙŠØ¯ Ù…Ø­ØªÙˆÙŠØ§Øª Ø§Ù„Ø­Ù‚ÙŠØ¨Ø© Ù…Ù† Ø§Ù„Ù‚Ø±Øµ ÙˆÙ…Ù† Ø§Ù„Ù…Ù‡Ø§Ù… Ø§Ù„Ù…Ù†Ø¬Ø²Ø© Ø­ØªÙ‰ Ù„Ø§ ØªØ¶ÙŠØ¹ Ø§Ù„Ø£Ø¯ÙˆØ§Øª Ø£Ø¨Ø¯Ø§Ù‹
+        LoadInventoryFromDisk();
+
+        // Ø±Ø¨Ø· Ø£Ø²Ø±Ø§Ø± Ø§Ù„Ø®Ø§Ù†Ø§Øª ØªÙ„Ù‚Ø§Ø¦ÙŠØ§Ù‹ ÙˆØ§Ù„ØªØ£ÙƒØ¯ Ù…Ù† Ø¥Ù…ÙƒØ§Ù†ÙŠØ© Ø§Ù„Ù†Ù‚Ø± Ø¹Ù„Ù‰ Ø§Ù„Ø£ÙŠÙ‚ÙˆÙ†Ø§Øª Ù…Ø¨Ø§Ø´Ø±Ø© Ø­ØªÙ‰ Ù„Ùˆ ÙƒØ§Ù† slotButtons ÙØ§Ø±ØºØ§Ù‹ ÙÙŠ Ø§Ù„Ù€ Inspector
+        if (slotIcons != null)
         {
-            for (int i = 0; i < slotButtons.Length; i++)
+            if (slotButtons == null || slotButtons.Length == 0)
+            {
+                slotButtons = new Button[slotIcons.Length];
+            }
+
+            for (int i = 0; i < slotIcons.Length; i++)
             {
                 int index = i;
-                if (slotButtons[i] != null)
+                if (slotIcons[i] != null)
                 {
-                    slotButtons[i].onClick.RemoveAllListeners();
-                    slotButtons[i].onClick.AddListener(() => OnSlotClicked(index));
+                    // Ø¬Ø¹Ù„ Ø§Ù„Ø£ÙŠÙ‚ÙˆÙ†Ø© Ù†ÙØ³Ù‡Ø§ Ù‚Ø§Ø¨Ù„Ø© Ù„Ù„Ø¶ØºØ· ÙƒÙ€ Raycast Target
+                    slotIcons[i].raycastTarget = true;
+
+                    // Ø§Ù„Ø¨Ø­Ø« Ø¹Ù† Button Ø¹Ù„Ù‰ Ù†ÙØ³ Ø§Ù„ÙƒØ§Ø¦Ù† Ø£Ùˆ Ø§Ù„ÙƒØ§Ø¦Ù† Ø§Ù„Ø£Ø¨
+                    Button btn = slotIcons[i].GetComponent<Button>();
+                    if (btn == null)
+                    {
+                        btn = slotIcons[i].GetComponentInParent<Button>();
+                    }
+                    if (btn == null)
+                    {
+                        btn = slotIcons[i].gameObject.AddComponent<Button>();
+                    }
+
+                    if (i < slotButtons.Length)
+                    {
+                        slotButtons[i] = btn;
+                    }
+
+                    btn.onClick.RemoveAllListeners();
+                    btn.onClick.AddListener(() => OnSlotClicked(index));
                 }
             }
         }
 
         ForceRefreshUI();
+    }
+
+    public static Sprite GetBookSprite()
+    {
+        Sprite bIcon = Resources.Load<Sprite>("book_icon") 
+                    ?? Resources.Load<Sprite>("magic_book_clean") 
+                    ?? Resources.Load<Sprite>("SecretBook");
+        if (bIcon == null)
+        {
+            Texture2D tex = Resources.Load<Texture2D>("magic_book_clean") 
+                         ?? Resources.Load<Texture2D>("book_icon") 
+                         ?? Resources.Load<Texture2D>("SecretBook");
+            if (tex != null)
+            {
+                bIcon = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+            }
+        }
+        return bIcon;
+    }
+
+    public static Sprite GetKeySprite()
+    {
+        Sprite kIcon = Resources.Load<Sprite>("key_icon") 
+                    ?? Resources.Load<Sprite>("key");
+        if (kIcon == null)
+        {
+            Texture2D tex = Resources.Load<Texture2D>("key_icon") ?? Resources.Load<Texture2D>("key");
+            if (tex != null)
+            {
+                kIcon = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+            }
+        }
+        return kIcon;
+    }
+
+    public static Sprite CreateProceduralNoteSprite()
+    {
+        int size = 64;
+        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        texture.filterMode = FilterMode.Bilinear;
+
+        Color paperColor = new Color(0.92f, 0.88f, 0.78f, 1f); // لون ورق قديم
+        Color borderColor = new Color(0.30f, 0.22f, 0.15f, 1f); // إطار بني داكن
+        Color lineCodeColor = new Color(0.2f, 0.35f, 0.55f, 1f); // خطوط الكود الحبرية
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                if (x < 6 || x > size - 7 || y < 6 || y > size - 7)
+                {
+                    texture.SetPixel(x, y, Color.clear);
+                    continue;
+                }
+                if (x == 6 || x == size - 7 || y == 6 || y == size - 7)
+                {
+                    texture.SetPixel(x, y, borderColor);
+                    continue;
+                }
+                if (x > size - 14 && y > size - 14)
+                {
+                    texture.SetPixel(x, y, (x + y > size + size - 20) ? Color.clear : borderColor);
+                    continue;
+                }
+                if ((y == 40 || y == 30 || y == 20) && x > 12 && x < size - 14)
+                {
+                    texture.SetPixel(x, y, lineCodeColor);
+                }
+                else
+                {
+                    texture.SetPixel(x, y, paperColor);
+                }
+            }
+        }
+        texture.Apply();
+        return Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+    }
+
+    public static Sprite GetNoteSprite()
+    {
+        Sprite nIcon = Resources.Load<Sprite>("paper_note") 
+                    ?? Resources.Load<Sprite>("note_icon") 
+                    ?? Resources.Load<Sprite>("SecretCode");
+        if (nIcon != null) return nIcon;
+
+        Texture2D tex = Resources.Load<Texture2D>("paper_note") 
+                     ?? Resources.Load<Texture2D>("note_icon") 
+                     ?? Resources.Load<Texture2D>("SecretCode");
+        if (tex != null)
+        {
+            return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+        }
+
+        return CreateProceduralNoteSprite();
+    }
+
+    public static Sprite GetFlintSprite()
+    {
+        return Resources.Load<Sprite>("flint_icon") ?? Resources.Load<Sprite>("lighter_icon");
+    }
+
+    public static Sprite ResolveItemIcon(string itemId)
+    {
+        if (string.IsNullOrEmpty(itemId)) return null;
+        string lower = itemId.ToLower();
+
+        if (lower.Contains("book"))
+        {
+            return GetBookSprite();
+        }
+        else if (lower.Contains("key"))
+        {
+            return GetKeySprite();
+        }
+        else if (lower.Contains("code") || lower.Contains("note") || lower.Contains("paper"))
+        {
+            return GetNoteSprite();
+        }
+        else if (lower.Contains("flint") || lower.Contains("lighter"))
+        {
+            return GetFlintSprite();
+        }
+
+        Texture2D fallbackTex = new Texture2D(64, 64);
+        Color[] cols = new Color[64 * 64];
+        for (int ci = 0; ci < cols.Length; ci++) cols[ci] = Color.clear;
+        fallbackTex.SetPixels(cols);
+        fallbackTex.Apply();
+        return Sprite.Create(fallbackTex, new Rect(0, 0, 64, 64), new Vector2(0.5f, 0.5f));
+    }
+
+    private void ValidateAndRefreshIcons()
+    {
+        for (int i = inventoryItems.Count - 1; i >= 0; i--)
+        {
+            if (string.IsNullOrEmpty(inventoryItems[i].id))
+            {
+                inventoryItems.RemoveAt(i);
+                continue;
+            }
+
+            if (inventoryItems[i].icon == null)
+            {
+                var entry = inventoryItems[i];
+                entry.icon = ResolveItemIcon(entry.id);
+                inventoryItems[i] = entry;
+            }
+        }
+        persistentItems = new List<InventoryEntry>(inventoryItems);
+    }
+
+    public void SaveInventoryToDisk()
+    {
+        List<string> savedIds = new List<string>();
+        for (int i = 0; i < inventoryItems.Count; i++)
+        {
+            if (!string.IsNullOrEmpty(inventoryItems[i].id))
+            {
+                savedIds.Add(inventoryItems[i].id);
+            }
+        }
+        PlayerPrefs.SetString("SavedInventory_ItemIDs", string.Join(";", savedIds));
+        PlayerPrefs.Save();
+    }
+
+    private void LoadInventoryFromDisk()
+    {
+        inventoryItems.Clear();
+        string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+
+        // 1. استرجاع الأدوات من السلسلة المحفوظة بالقرص
+        string raw = PlayerPrefs.GetString("SavedInventory_ItemIDs", "");
+        if (!string.IsNullOrEmpty(raw))
+        {
+            string[] ids = raw.Split(new char[] { ';' }, System.StringSplitOptions.RemoveEmptyEntries);
+            foreach (var id in ids)
+            {
+                if (HasItem(id)) continue;
+                Sprite icon = ResolveItemIcon(id);
+                inventoryItems.Add(new InventoryEntry { id = id, icon = icon });
+            }
+        }
+
+        // 2. التحقق من المهام المنجزة وضمان بقاء كل أداة جناها اللاعب داخل حقيبته
+        bool dustDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("dust"))
+                        || PlayerPrefs.GetInt(sceneName + "_Task_dust", 0) == 1
+                        || PlayerPrefs.GetInt("HasItem_SecretBook", 0) == 1;
+
+        if (dustDone && !HasItem("SecretBook") && !HasItem("Book"))
+        {
+            inventoryItems.Add(new InventoryEntry { id = "SecretBook", icon = GetBookSprite() });
+        }
+
+        bool keyDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("key"))
+                       || PlayerPrefs.GetInt(sceneName + "_Task_key", 0) == 1
+                       || PlayerPrefs.GetInt("HasItem_ChestKey", 0) == 1;
+
+        bool doorDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("door"))
+                        || PlayerPrefs.GetInt(sceneName + "_Task_door", 0) == 1
+                        || PlayerPrefs.GetInt("Room1_Done", 0) == 1;
+
+        // المفتاح يبقى في الحقيبة إذا التقطه اللاعب ولم يفتح الباب بعد
+        if (keyDone && !doorDone && !HasItem("ChestKey") && !HasItem("key"))
+        {
+            inventoryItems.Add(new InventoryEntry { id = "ChestKey", icon = GetKeySprite() });
+        }
+
+        bool candleDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("candle"))
+                          || PlayerPrefs.GetInt(sceneName + "_Task_candle", 0) == 1
+                          || PlayerPrefs.GetInt("HasItem_SecretCode", 0) == 1;
+
+        if (candleDone && !HasItem("SecretCode") && !HasItem("code"))
+        {
+            inventoryItems.Add(new InventoryEntry { id = "SecretCode", icon = GetNoteSprite() });
+        }
+
+        // إذا تم إشعال الشمعة فالقداحة تم استهلاكها وحذفها تماماً ولا تظهر بالحقيبة
+        if (candleDone)
+        {
+            inventoryItems.RemoveAll(x => x.id.Equals("Flint", System.StringComparison.OrdinalIgnoreCase) 
+                                       || x.id.Equals("flint", System.StringComparison.OrdinalIgnoreCase));
+        }
+        else
+        {
+            bool trashDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("trash"))
+                             || PlayerPrefs.GetInt(sceneName + "_Task_trash", 0) == 1;
+
+            if (trashDone && !HasItem("Flint") && !HasItem("flint"))
+            {
+                inventoryItems.Add(new InventoryEntry { id = "Flint", icon = GetFlintSprite() });
+            }
+        }
+
+        ValidateAndRefreshIcons();
+        SaveInventoryToDisk();
+    }
+
+    public static void ResetInventoryData()
+    {
+        persistentItems.Clear();
+        PlayerPrefs.DeleteKey("SavedInventory_ItemIDs");
+        PlayerPrefs.DeleteKey("HasItem_SecretBook");
+        PlayerPrefs.DeleteKey("HasItem_SecretCode");
+        PlayerPrefs.DeleteKey("HasItem_ChestKey");
+        PlayerPrefs.Save();
+        if (Instance != null)
+        {
+            Instance.inventoryItems.Clear();
+            Instance.SelectedItem = "";
+            Instance.ForceRefreshUI();
+        }
     }
 
     public bool HasItem(string itemName)
@@ -83,6 +365,11 @@ public class InventoryManager : MonoBehaviour
         }
 
         isManuallyOpen = !isManuallyOpen;
+        if (isManuallyOpen)
+        {
+            ValidateAndRefreshIcons();
+            ForceRefreshUI();
+        }
         SetInventoryVisible(isManuallyOpen);
     }
 
@@ -97,39 +384,51 @@ public class InventoryManager : MonoBehaviour
         }
     }
 
-    public bool AddItem(string itemName, Sprite itemIcon)
+    public bool AddItem(string itemName, Sprite itemIcon, bool playFeedback = true)
     {
-        if (string.IsNullOrEmpty(itemName) || itemIcon == null)
+        if (string.IsNullOrEmpty(itemName)) return false;
+
+        if (itemIcon == null)
         {
-            Debug.LogWarning("[Inventory]: تم رفض الإضافة لأن الأيقونة أو الاسم مفقود!");
-            return false;
+            itemIcon = ResolveItemIcon(itemName);
         }
 
-        if (HasItem(itemName))
-        {
-            Debug.LogWarning("[Inventory]: العنصر " + itemName + " موجود بالفعل في الحقيبة!");
-            return false;
-        }
+        if (HasItem(itemName)) return false;
 
-        if (inventoryItems.Count >= slotIcons.Length)
+        if (slotIcons != null && inventoryItems.Count >= slotIcons.Length)
         {
-            Debug.LogWarning("[Inventory]: الحقيبة ممتلئة!");
+            Debug.LogWarning("[Inventory]: Ø§Ù„Ø­Ù‚ÙŠØ¨Ø© Ù…Ù…ØªÙ„Ø¦Ø©!");
             return false;
         }
 
         inventoryItems.Add(new InventoryEntry { id = itemName, icon = itemIcon });
-        Debug.Log("<color=green>[الحقيبة]:</color> تمت إضافة: " + itemName);
+        persistentItems = new List<InventoryEntry>(inventoryItems);
+        SaveInventoryToDisk();
+        Debug.Log("<color=green>[Ø§Ù„Ø­Ù‚ÙŠØ¨Ø©]:</color> ØªÙ…Øª Ø¥Ø¶Ø§ÙØ©: " + itemName);
+
+        if (playFeedback)
+        {
+            ProceduralAudioGenerator.PlaySound("pickup", 0.85f);
+            if (UniversalVideoPlayer.Instance != null)
+            {
+                UniversalVideoPlayer.Instance.TryPlayItemVideo(itemName);
+            }
+            ShowInventoryTemporarily();
+        }
 
         ForceRefreshUI();
-        ShowInventoryTemporarily();
         return true;
+    }
+
+    public bool AddItem(string itemName, Sprite itemIcon)
+    {
+        return AddItem(itemName, itemIcon, true);
     }
 
     public bool AddItem(Sprite itemIcon)
     {
-        return AddItem("Flint", itemIcon);
+        return AddItem("Flint", itemIcon, true);
     }
-
     public void RemoveItem(string itemName)
     {
         int index = inventoryItems.FindIndex(x => x.id.Equals(itemName, System.StringComparison.OrdinalIgnoreCase));
@@ -137,6 +436,8 @@ public class InventoryManager : MonoBehaviour
         if (index != -1)
         {
             inventoryItems.RemoveAt(index);
+            persistentItems = new List<InventoryEntry>(inventoryItems);
+            SaveInventoryToDisk();
             if (SelectedItem.Equals(itemName, System.StringComparison.OrdinalIgnoreCase))
             {
                 ClearSelection();
@@ -167,7 +468,19 @@ public class InventoryManager : MonoBehaviour
                 // خانة ممتلئة بعنصر حقيقي
                 slotIcons[i].gameObject.SetActive(true);
                 slotIcons[i].sprite = inventoryItems[i].icon;
-                slotIcons[i].color = Color.white;
+                
+                bool isThisSelected = !string.IsNullOrEmpty(SelectedItem) && 
+                    inventoryItems[i].id.Equals(SelectedItem, System.StringComparison.OrdinalIgnoreCase);
+
+                // إبراز وتوهج الأداة المحددة بلون ذهبي واضح
+                slotIcons[i].color = isThisSelected ? new Color(1f, 0.95f, 0.5f, 1f) : Color.white;
+                slotIcons[i].transform.localScale = isThisSelected ? Vector3.one * 1.15f : Vector3.one;
+
+                Outline outline = slotIcons[i].GetComponent<Outline>();
+                if (outline == null) outline = slotIcons[i].gameObject.AddComponent<Outline>();
+                outline.enabled = isThisSelected;
+                outline.effectColor = new Color(1f, 0.85f, 0.2f, 0.9f);
+                outline.effectDistance = new Vector2(3f, -3f);
 
                 if (slotButtons != null && i < slotButtons.Length && slotButtons[i] != null)
                 {
@@ -232,9 +545,21 @@ public class InventoryManager : MonoBehaviour
     {
         if (slotIndex < inventoryItems.Count)
         {
-            SelectedItem = inventoryItems[slotIndex].id;
-            Debug.Log("<color=yellow>[الحقيبة]:</color> تم تحديد الأداة: " + SelectedItem);
+            // إذا كان العنصر محدداً بالفعل وتم الضغط عليه ثانية يمكن إلغاء التحديد أو إعادة تحديده
+            if (SelectedItem.Equals(inventoryItems[slotIndex].id, System.StringComparison.OrdinalIgnoreCase))
+            {
+                // إبقاء التحديد فعالاً
+            }
+            else
+            {
+                SelectedItem = inventoryItems[slotIndex].id;
+            }
 
+            ProceduralAudioGenerator.PlaySound("ui_click", 0.6f);
+            Debug.Log("<color=yellow>[الحقيبة]:</color> تم تحديد الأداة: " + SelectedItem);
+            ForceRefreshUI();
+
+            // عند النقر على الأيقونة في الحقيبة يفتح التصميم والمعاينة مباشرة
             if (SelectedItem.Contains("Book") || SelectedItem.Contains("book"))
             {
                 OpenInspectBook();
@@ -247,12 +572,170 @@ public class InventoryManager : MonoBehaviour
         else
         {
             ClearSelection();
+            ForceRefreshUI();
         }
     }
 
     public void OpenInspectBook()
     {
-        if (inspectBookPanel != null) inspectBookPanel.SetActive(true);
+        if (inspectBookPanel != null)
+        {
+            inspectBookPanel.SetActive(true);
+            inspectBookPanel.transform.SetAsLastSibling();
+
+            // تطبيق ديزاين أنيق ومرتب للوحة الكتاب (Ancient Leather & Gold Grimoire Design)
+            StyleBookInspectPanel();
+
+            RectTransform rt = inspectBookPanel.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                // إزاحة متناسقة لليمين حتى يظهر بجانب لوحة الصندوق بشكل متكامل
+                rt.anchoredPosition = new Vector2(320f, 10f);
+            }
+        }
+    }
+
+    private void StyleBookInspectPanel()
+    {
+        if (inspectBookPanel == null) return;
+
+        // 1. حجم اللوحة وغلاف كحلي ملكي داكن فخم
+        RectTransform rt = inspectBookPanel.GetComponent<RectTransform>();
+        if (rt != null)
+        {
+            rt.sizeDelta = new Vector2(430, 520);
+        }
+
+        Image bg = inspectBookPanel.GetComponent<Image>();
+        if (bg != null)
+        {
+            bg.color = new Color(0.06f, 0.09f, 0.16f, 0.98f);
+        }
+
+        Outline outline = inspectBookPanel.GetComponent<Outline>();
+        if (outline == null) outline = inspectBookPanel.AddComponent<Outline>();
+        outline.effectColor = new Color(0.88f, 0.72f, 0.35f, 0.95f); // إطار ذهبي معتق
+        outline.effectDistance = new Vector2(3f, -3f);
+
+        // 2. إنشاء / تنسيق صفحة المخطوطة الداخلية (Navy Midnight Inner Page)
+        Transform pageT = inspectBookPanel.transform.Find("Grimoire_InnerPage");
+        GameObject pageObj = (pageT != null) ? pageT.gameObject : new GameObject("Grimoire_InnerPage", typeof(RectTransform));
+        pageObj.transform.SetParent(inspectBookPanel.transform, false);
+        pageObj.transform.SetAsFirstSibling();
+
+        RectTransform pRect = pageObj.GetComponent<RectTransform>();
+        pRect.anchorMin = Vector2.zero;
+        pRect.anchorMax = Vector2.one;
+        pRect.offsetMin = new Vector2(16, 18);
+        pRect.offsetMax = new Vector2(-16, -18);
+
+        Image pageImg = pageObj.GetComponent<Image>() ?? pageObj.AddComponent<Image>();
+        pageImg.color = new Color(0.09f, 0.13f, 0.22f, 0.96f);
+        pageImg.raycastTarget = false;
+
+        Outline pageOutline = pageObj.GetComponent<Outline>() ?? pageObj.AddComponent<Outline>();
+        pageOutline.effectColor = new Color(0.25f, 0.35f, 0.55f, 0.5f);
+        pageOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+        // إخفاء الخلفية المظلمة الشفافة إن وجدت
+        Transform darkBacking = inspectBookPanel.transform.Find("InspectBook_Panel");
+        if (darkBacking != null) darkBacking.gameObject.SetActive(false);
+
+        // 3. إضافة وتنسيق عنوان فخم للكتاب
+        Transform existingHeader = inspectBookPanel.transform.Find("Book_HeaderTitle");
+        GameObject headerObj = (existingHeader != null) ? existingHeader.gameObject : new GameObject("Book_HeaderTitle", typeof(RectTransform));
+        headerObj.transform.SetParent(inspectBookPanel.transform, false);
+
+        RectTransform hRect = headerObj.GetComponent<RectTransform>();
+        hRect.anchorMin = new Vector2(0f, 1f);
+        hRect.anchorMax = new Vector2(1f, 1f);
+        hRect.pivot = new Vector2(0.5f, 1f);
+        hRect.anchoredPosition = new Vector2(0, -28);
+        hRect.sizeDelta = new Vector2(380, 42);
+
+        TextMeshProUGUI hTmp = headerObj.GetComponent<TextMeshProUGUI>() ?? headerObj.AddComponent<TextMeshProUGUI>();
+        hTmp.text = "ANCIENT TOME";
+        hTmp.fontSize = 20;
+        hTmp.fontStyle = FontStyles.Bold;
+        hTmp.characterSpacing = 4f;
+        hTmp.alignment = TextAlignmentOptions.Center;
+        hTmp.color = new Color(0.96f, 0.82f, 0.45f, 1f);
+
+        // خط فاصل ذهبي تحت العنوان
+        Transform dividerT = inspectBookPanel.transform.Find("Book_HeaderDivider");
+        GameObject dividerObj = (dividerT != null) ? dividerT.gameObject : new GameObject("Book_HeaderDivider", typeof(RectTransform));
+        dividerObj.transform.SetParent(inspectBookPanel.transform, false);
+        RectTransform divRect = dividerObj.GetComponent<RectTransform>();
+        divRect.anchorMin = new Vector2(0.15f, 1f);
+        divRect.anchorMax = new Vector2(0.85f, 1f);
+        divRect.pivot = new Vector2(0.5f, 1f);
+        divRect.anchoredPosition = new Vector2(0, -70);
+        divRect.sizeDelta = new Vector2(0, 2f);
+        Image divImg = dividerObj.GetComponent<Image>() ?? dividerObj.AddComponent<Image>();
+        divImg.color = new Color(0.85f, 0.68f, 0.28f, 0.45f);
+        divImg.raycastTarget = false;
+
+        // 4. ترقية وتنسيق نص الكود السري (CODE: 7 3 9)
+        Transform codeText = inspectBookPanel.transform.Find("Secret_Code_Text");
+        if (codeText != null)
+        {
+            RectTransform ctRect = codeText.GetComponent<RectTransform>();
+            if (ctRect != null)
+            {
+                ctRect.anchoredPosition = new Vector2(0, -30);
+                ctRect.sizeDelta = new Vector2(340, 100);
+            }
+
+            TextMeshProUGUI cTmp = codeText.GetComponent<TextMeshProUGUI>();
+            if (cTmp != null)
+            {
+                cTmp.fontSize = 32;
+                cTmp.fontStyle = FontStyles.Bold;
+                cTmp.characterSpacing = 6;
+                cTmp.alignment = TextAlignmentOptions.Center;
+                cTmp.color = new Color(1f, 0.92f, 0.65f, 1f); // ذهبي فاتح مشع
+            }
+        }
+
+        // 5. زر إغلاق دائري عصري فخم (Floating Close Button)
+        Transform closeBtn = inspectBookPanel.transform.Find("Close_Button");
+        if (closeBtn != null)
+        {
+            RectTransform cbRect = closeBtn.GetComponent<RectTransform>();
+            if (cbRect != null)
+            {
+                cbRect.anchorMin = new Vector2(1f, 1f);
+                cbRect.anchorMax = new Vector2(1f, 1f);
+                cbRect.pivot = new Vector2(0.5f, 0.5f);
+                cbRect.anchoredPosition = new Vector2(-22, -22);
+                cbRect.sizeDelta = new Vector2(34, 34);
+            }
+
+            Image cbImg = closeBtn.GetComponent<Image>();
+            if (cbImg != null)
+            {
+                cbImg.color = new Color(0.32f, 0.10f, 0.10f, 0.95f);
+                cbImg.raycastTarget = true;
+            }
+
+            Outline cbOutline = closeBtn.GetComponent<Outline>();
+            if (cbOutline == null) cbOutline = closeBtn.gameObject.AddComponent<Outline>();
+            cbOutline.effectColor = new Color(0.95f, 0.40f, 0.40f, 0.9f);
+            cbOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+            TextMeshProUGUI cbText = closeBtn.GetComponentInChildren<TextMeshProUGUI>();
+            if (cbText != null)
+            {
+                cbText.text = "X";
+                cbText.fontSize = 18;
+                cbText.fontStyle = FontStyles.Bold;
+                cbText.alignment = TextAlignmentOptions.Center;
+                cbText.color = new Color(1f, 0.85f, 0.85f, 1f);
+                cbText.raycastTarget = false;
+            }
+
+            closeBtn.SetAsLastSibling();
+        }
     }
 
     public void CloseInspectBook()
@@ -265,12 +748,51 @@ public class InventoryManager : MonoBehaviour
         if (notePreviewPanel != null)
         {
             notePreviewPanel.SetActive(true);
-            if (noteTextDisplay != null) noteTextDisplay.text = "4729";
+            // إحضار ورقة الكود لأعلى طبقة بالكانفاس حتى تظهر فوق لوحة الصندوق
+            notePreviewPanel.transform.SetAsLastSibling();
+
+            RectTransform rt = notePreviewPanel.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                // إزاحة الورقة قليلاً لليمين أو اليسار حتى تظهر بوضوح بجانب قفل الأرقام ولا تحجبها
+                rt.anchoredPosition = new Vector2(340f, 20f);
+            }
+
+            if (noteTextDisplay != null)
+            {
+                noteTextDisplay.text = "4729";
+            }
+            else
+            {
+                TextMeshProUGUI tmp = notePreviewPanel.GetComponentInChildren<TextMeshProUGUI>();
+                if (tmp != null)
+                {
+                    tmp.text = "4729";
+                }
+            }
         }
     }
 
     public void CloseNotePreview()
     {
         if (notePreviewPanel != null) notePreviewPanel.SetActive(false);
+    }
+
+    private void RepositionBagButton()
+    {
+        GameObject bagBtn = GameObject.Find("Inventory_Toggle_Button") ?? GameObject.Find("BagButton");
+        if (bagBtn != null)
+        {
+            RectTransform rt = bagBtn.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchorMin = new Vector2(0f, 1f);
+                rt.anchorMax = new Vector2(0f, 1f);
+                rt.pivot = new Vector2(0f, 1f);
+                // الحقيبة بجانب زر الرجوع أعلى اليسار
+                rt.anchoredPosition = new Vector2(205f, -42f);
+                rt.sizeDelta = new Vector2(65f, 65f);
+            }
+        }
     }
 }

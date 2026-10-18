@@ -17,8 +17,14 @@ public class DialDragWheel : MonoBehaviour, IDragHandler, IEndDragHandler
 
     private void Start()
     {
-        // قراءة الرقم المكتوب حالياً في الـ UI عند التشغيل إن وجد
-        if (numberText != null && int.TryParse(numberText.text.Trim(), out int parsedVal))
+        string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        string savedCodeStr = PlayerPrefs.GetString($"{sceneName}_Chest_EnteredCode", "");
+
+        if (!string.IsNullOrEmpty(savedCodeStr) && dialIndex < savedCodeStr.Length && int.TryParse(savedCodeStr[dialIndex].ToString(), out int savedVal))
+        {
+            currentValue = savedVal;
+        }
+        else if (numberText != null && int.TryParse(numberText.text.Trim(), out int parsedVal))
         {
             currentValue = parsedVal;
         }
@@ -54,12 +60,14 @@ public class DialDragWheel : MonoBehaviour, IDragHandler, IEndDragHandler
     private void Increment()
     {
         currentValue = (currentValue + 1) % 10;
+        ProceduralAudioGenerator.PlaySound("dial_tick", 0.7f);
         UpdateUI();
     }
 
     private void Decrement()
     {
         currentValue = (currentValue - 1 + 10) % 10;
+        ProceduralAudioGenerator.PlaySound("dial_tick", 0.7f);
         UpdateUI();
     }
 

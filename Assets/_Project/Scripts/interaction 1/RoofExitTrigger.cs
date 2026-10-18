@@ -55,7 +55,7 @@ public class RoofExitTrigger : MonoBehaviour
                 return;
 
             Camera cam = Camera.main;
-            if (cam == null) cam = FindFirstObjectByType<Camera>();
+            if (cam == null) cam = FindAnyObjectByType<Camera>();
             if (cam == null) return;
 
             Ray ray = cam.ScreenPointToRay(Input.mousePosition);
@@ -118,8 +118,18 @@ public class RoofExitTrigger : MonoBehaviour
             PlayerPrefs.SetInt("OpenLevelsDirectly", 1);
             PlayerPrefs.Save();
 
-            // 3. الانتقال إلى مشهد القائمة الرئيسية
-            SceneManager.LoadScene(menuSceneName);
+            // 3. الانتقال إلى مشهد القائمة الرئيسية (أو تشغيل فيديو الانتقال أولاً إن وُجد)
+            if (UniversalVideoPlayer.Instance != null && (UniversalVideoPlayer.Instance.nextLevelVideoClip != null || !string.IsNullOrEmpty(UniversalVideoPlayer.Instance.nextLevelVideoUrl)))
+            {
+                UniversalVideoPlayer.Instance.PlayNextLevelCutscene(() =>
+                {
+                    SceneManager.LoadScene(menuSceneName);
+                });
+            }
+            else
+            {
+                SceneManager.LoadScene(menuSceneName);
+            }
         }
         else
         {

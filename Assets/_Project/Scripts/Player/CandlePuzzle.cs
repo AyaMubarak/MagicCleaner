@@ -6,18 +6,34 @@ public class CandlePuzzle : MonoBehaviour
     [Tooltip("اسحبي Point Light أو مجسم شعلة الشمعة هنا")]
     [SerializeField] private GameObject flameEffect;
 
-    [Header("Required Lighter / Flint Settings")]
-    [Tooltip("اسم معرف القداحة في الحقيبة")]
+    [Header("Optional Cutscene Video")]
+    [Tooltip("اختياري: اسحبي فيديو إشعال الشمعة بالقداحة هنا ليعرض عند الإشعال")]
+    [SerializeField] private UnityEngine.Video.VideoClip lightCandleVideoClip;
     [SerializeField] private string lighterItemID = "Flint";
 
     private bool isLit = false;
 
     private void Start()
     {
-        // إطفاء الشعلة والضوء في البداية
-        if (flameEffect != null)
+        string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        bool isAlreadyDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("candle"))
+                             || PlayerPrefs.GetInt($"{sceneName}_Task_candle", 0) == 1;
+
+        if (isAlreadyDone)
         {
-            flameEffect.SetActive(false);
+            isLit = true;
+            if (flameEffect != null)
+            {
+                flameEffect.SetActive(true);
+            }
+        }
+        else
+        {
+            // إطفاء الشعلة والضوء في البداية
+            if (flameEffect != null)
+            {
+                flameEffect.SetActive(false);
+            }
         }
     }
 
@@ -81,7 +97,8 @@ public class CandlePuzzle : MonoBehaviour
         InventoryManager.Instance.RemoveItem(lighterItemID);
         InventoryManager.Instance.ClearSelection();
 
-        // 2. إشعال شعلة وضوء الشمعة
+        // 2. إشعال شعلة وضوء الشمعة مع صوت نار واشتعال سحري
+        ProceduralAudioGenerator.PlaySound("candle_ignite", 0.85f);
         if (flameEffect != null)
         {
             flameEffect.SetActive(true);
@@ -96,6 +113,12 @@ public class CandlePuzzle : MonoBehaviour
 
         // 4. إبلاغ دليل التقدم بإنجاز مهمة إشعال الشمعة
         LevelProgressGuide.ReportTask("candle");
+
+        // 5. تشغيل فيديو الجدار والشمعة (gemini_generated_video_ff76d4f1)
+        if (UniversalVideoPlayer.Instance != null)
+        {
+            UniversalVideoPlayer.Instance.TryPlayItemVideo("Candle");
+        }
 
         Debug.Log("<color=green>[CandlePuzzle]:</color> تم إشعال الشمعة بنجاح!");
     }

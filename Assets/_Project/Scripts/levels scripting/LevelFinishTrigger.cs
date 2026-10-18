@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.SceneManagement;
 
 public class LevelFinishTrigger : MonoBehaviour
@@ -22,8 +22,18 @@ public class LevelFinishTrigger : MonoBehaviour
 
         Debug.Log("تم حفظ إنهاء Level 1 بنجاح والانتقال للقائمة!");
 
-        // العودة للقائمة الرئيسية
-        SceneManager.LoadScene(mainMenuSceneName);
+        // العودة للقائمة الرئيسية (أو تشغيل فيديو الانتقال أولاً إن وُجد)
+        if (UniversalVideoPlayer.Instance != null && (UniversalVideoPlayer.Instance.nextLevelVideoClip != null || !string.IsNullOrEmpty(UniversalVideoPlayer.Instance.nextLevelVideoUrl)))
+        {
+            UniversalVideoPlayer.Instance.PlayNextLevelCutscene(() =>
+            {
+                SceneManager.LoadScene(mainMenuSceneName);
+            });
+        }
+        else
+        {
+            SceneManager.LoadScene(mainMenuSceneName);
+        }
     }
 
     // زر تجريبي / للمطورين لإعادة تصفير التقدم واختبار START مجدداً

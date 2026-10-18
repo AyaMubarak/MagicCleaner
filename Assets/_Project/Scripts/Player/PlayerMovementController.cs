@@ -19,6 +19,24 @@ public class PlayerMovementController : MonoBehaviour
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
+        if (controller != null)
+        {
+            // زيادة نصف قطر التصادم للاعب لمنع الكاميرا من الاقتراب الشديد من الجدران واختراقها
+            if (controller.radius < 0.55f)
+            {
+                controller.radius = 0.55f;
+            }
+        }
+
+        // ضبط الكاميرا لتجنب اختراق الجدران (Near Clip Plane)
+        Camera cam = GetComponentInChildren<Camera>();
+        if (cam == null) cam = Camera.main;
+        if (cam != null)
+        {
+            cam.nearClipPlane = 0.01f;
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = new Color(0.08f, 0.09f, 0.12f, 1f); // لون داكن فخم بدلاً من السماء الفارغة
+        }
     }
 
     private void Update()

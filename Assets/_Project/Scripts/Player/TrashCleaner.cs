@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 
 public class TrashCleaner : MonoBehaviour
@@ -13,6 +13,35 @@ public class TrashCleaner : MonoBehaviour
 
     private int currentClicks = 0;
     private bool isCleaned = false;
+
+    private void Start()
+    {
+        string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        bool isAlreadyDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("trash"))
+                             || PlayerPrefs.GetInt($"{sceneName}_Task_trash", 0) == 1;
+
+        if (isAlreadyDone)
+        {
+            isCleaned = true;
+            if (worldTrashObject != null)
+            {
+                worldTrashObject.SetActive(false);
+            }
+            else
+            {
+                gameObject.SetActive(false);
+            }
+
+            // إذا لم يتم استخدام القداحة لإشعال الشمعة بعد، إبقاء القداحة بالحقيبة
+            bool candleDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("candle"))
+                              || PlayerPrefs.GetInt($"{sceneName}_Task_candle", 0) == 1;
+
+            if (!candleDone && InventoryManager.Instance != null && flintIcon != null && !InventoryManager.Instance.HasItem(itemName))
+            {
+                InventoryManager.Instance.AddItem(itemName, flintIcon);
+            }
+        }
+    }
 
     private void OnMouseDown()
     {
@@ -31,7 +60,8 @@ public class TrashCleaner : MonoBehaviour
     {
         isCleaned = true;
 
-        // 1. إضافة القداحة باسم "Flint" وصورتها إلى الحقيبة
+        // 1. إضافة القداحة باسم "Flint" وصورتها إلى الحقيبة مع صوت جمع مبهج
+        ProceduralAudioGenerator.PlaySound("pickup", 0.85f);
         if (InventoryManager.Instance != null && flintIcon != null)
         {
             InventoryManager.Instance.AddItem(itemName, flintIcon);
