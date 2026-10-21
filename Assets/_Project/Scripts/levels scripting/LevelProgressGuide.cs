@@ -346,6 +346,10 @@ public class LevelProgressGuide : MonoBehaviour
         if (id.Contains("water")) return "اسكب الإكسير لإنعاش النبتة السحرية";
         if (id.Contains("alchemy")) return "امزج العناصر داخل المرجل لتركيب الوصفة";
         if (id.Contains("roof")) return "اصعد الدرج الخشبي وافتح فتحة السطح";
+        if (id.Contains("painting") || id.Contains("memory")) return "افحص لوحة الذكريات المعلقة لكشف التوقيت السري (8:15)";
+        if (id.Contains("clock_hand") || id.Contains("hand")) return "ابحث عن عقرب الساعة وركبه على الساعة الجدارية";
+        if (id.Contains("clock") || id.Contains("align")) return "اضبط عقارب الساعة الجدارية على التوقيت 8:15 لفتح الخزانة";
+        if (id.Contains("cupboard") || id.Contains("cabinet")) return "التقط المفتاح الذهبي من الخزانة السحرية المفتوحة";
 
         return "اتبع إشارات الجنية لإكمال هذه الخطوة";
     }

@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -194,6 +194,31 @@ public class InventoryManager : MonoBehaviour
         return Resources.Load<Sprite>("flint_icon") ?? Resources.Load<Sprite>("lighter_icon");
     }
 
+    public static Sprite GetMemoryPaintingSprite()
+    {
+        Sprite s = Resources.Load<Sprite>("memory_painting_time_icon") 
+                ?? Resources.Load<Sprite>("memory_painting");
+        if (s != null) return s;
+
+        Texture2D tex = Resources.Load<Texture2D>("memory_painting_time_icon")
+                     ?? Resources.Load<Texture2D>("memory_painting");
+        if (tex != null)
+        {
+            return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+        }
+
+        string p = System.IO.Path.Combine(Application.dataPath, "_Project/Resources/memory_painting_time_icon.png");
+        if (System.IO.File.Exists(p))
+        {
+            byte[] bytes = System.IO.File.ReadAllBytes(p);
+            Texture2D diskTex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            diskTex.LoadImage(bytes);
+            return Sprite.Create(diskTex, new Rect(0, 0, diskTex.width, diskTex.height), new Vector2(0.5f, 0.5f));
+        }
+
+        return CreateProceduralNoteSprite();
+    }
+
     public static Sprite ResolveItemIcon(string itemId)
     {
         if (string.IsNullOrEmpty(itemId)) return null;
@@ -214,6 +239,10 @@ public class InventoryManager : MonoBehaviour
         else if (lower.Contains("flint") || lower.Contains("lighter"))
         {
             return GetFlintSprite();
+        }
+        else if (lower.Contains("painting") || lower.Contains("memory") || lower.Contains("tablo") || lower.Contains("time"))
+        {
+            return GetMemoryPaintingSprite();
         }
 
         Texture2D fallbackTex = new Texture2D(64, 64);
@@ -326,6 +355,16 @@ public class InventoryManager : MonoBehaviour
             }
         }
 
+        // 3. التحقق من لوحة الذكريات للغرفة 3
+        bool paintingDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("painting"))
+                            || PlayerPrefs.GetInt(sceneName + "_Task_painting", 0) == 1
+                            || PlayerPrefs.GetInt("HasItem_MemoryPainting", 0) == 1;
+
+        if (paintingDone && !HasItem("MemoryPainting"))
+        {
+            inventoryItems.Add(new InventoryEntry { id = "MemoryPainting", icon = GetMemoryPaintingSprite() });
+        }
+
         ValidateAndRefreshIcons();
         SaveInventoryToDisk();
     }
@@ -337,6 +376,7 @@ public class InventoryManager : MonoBehaviour
         PlayerPrefs.DeleteKey("HasItem_SecretBook");
         PlayerPrefs.DeleteKey("HasItem_SecretCode");
         PlayerPrefs.DeleteKey("HasItem_ChestKey");
+        PlayerPrefs.DeleteKey("HasItem_MemoryPainting");
         PlayerPrefs.Save();
         if (Instance != null)
         {
@@ -794,5 +834,200 @@ public class InventoryManager : MonoBehaviour
                 rt.sizeDelta = new Vector2(65f, 65f);
             }
         }
+    }
+
+    private GameObject memoryPaintingPreviewPanel;
+
+    public void OpenMemoryPaintingPreview()
+    {
+        if (memoryPaintingPreviewPanel == null)
+        {
+            BuildMemoryPaintingInspectPanel();
+        }
+
+        if (memoryPaintingPreviewPanel != null)
+        {
+            memoryPaintingPreviewPanel.SetActive(true);
+            memoryPaintingPreviewPanel.transform.SetAsLastSibling();
+
+            RectTransform rt = memoryPaintingPreviewPanel.GetComponent<RectTransform>();
+            if (rt != null)
+            {
+                rt.anchoredPosition = new Vector2(320f, 10f);
+            }
+        }
+    }
+
+    public void CloseMemoryPaintingPreview()
+    {
+        if (memoryPaintingPreviewPanel != null)
+        {
+            memoryPaintingPreviewPanel.SetActive(false);
+        }
+    }
+
+    private void BuildMemoryPaintingInspectPanel()
+    {
+        Canvas parentCanvas = inventoryCanvasGroup != null ? inventoryCanvasGroup.GetComponentInParent<Canvas>() : FindFirstObjectByType<Canvas>();
+        if (parentCanvas == null) return;
+
+        memoryPaintingPreviewPanel = new GameObject("MemoryPainting_InspectPanel", typeof(RectTransform));
+        memoryPaintingPreviewPanel.transform.SetParent(parentCanvas.transform, false);
+
+        RectTransform rt = memoryPaintingPreviewPanel.GetComponent<RectTransform>();
+        rt.anchorMin = new Vector2(0.5f, 0.5f);
+        rt.anchorMax = new Vector2(0.5f, 0.5f);
+        rt.pivot = new Vector2(0.5f, 0.5f);
+        rt.anchoredPosition = new Vector2(320f, 10f);
+        rt.sizeDelta = new Vector2(440, 560);
+
+        Image bg = memoryPaintingPreviewPanel.AddComponent<Image>();
+        bg.color = new Color(0.06f, 0.09f, 0.16f, 0.98f);
+
+        Outline outline = memoryPaintingPreviewPanel.AddComponent<Outline>();
+        outline.effectColor = new Color(0.92f, 0.78f, 0.35f, 0.95f);
+        outline.effectDistance = new Vector2(3f, -3f);
+
+        // Header Title
+        GameObject headerObj = new GameObject("Title", typeof(RectTransform));
+        headerObj.transform.SetParent(memoryPaintingPreviewPanel.transform, false);
+        RectTransform hRt = headerObj.GetComponent<RectTransform>();
+        hRt.anchorMin = new Vector2(0f, 1f);
+        hRt.anchorMax = new Vector2(1f, 1f);
+        hRt.pivot = new Vector2(0.5f, 1f);
+        hRt.anchoredPosition = new Vector2(0, -22);
+        hRt.sizeDelta = new Vector2(400, 38);
+
+        TextMeshProUGUI hTmp = headerObj.AddComponent<TextMeshProUGUI>();
+        hTmp.text = "MEMORY PAINTING";
+        hTmp.fontSize = 20;
+        hTmp.fontStyle = FontStyles.Bold;
+        hTmp.characterSpacing = 3f;
+        hTmp.alignment = TextAlignmentOptions.Center;
+        hTmp.color = new Color(0.96f, 0.82f, 0.45f, 1f);
+
+        // Painting Preview Image
+        GameObject imgObj = new GameObject("PaintingImage", typeof(RectTransform));
+        imgObj.transform.SetParent(memoryPaintingPreviewPanel.transform, false);
+        RectTransform iRt = imgObj.GetComponent<RectTransform>();
+        iRt.anchorMin = new Vector2(0.5f, 1f);
+        iRt.anchorMax = new Vector2(0.5f, 1f);
+        iRt.pivot = new Vector2(0.5f, 1f);
+        iRt.anchoredPosition = new Vector2(0, -68);
+        iRt.sizeDelta = new Vector2(230, 230);
+
+        Image pImg = imgObj.AddComponent<Image>();
+        pImg.sprite = GetMemoryPaintingSprite();
+        pImg.preserveAspect = true;
+
+        Outline pOutline = imgObj.AddComponent<Outline>();
+        pOutline.effectColor = new Color(0.85f, 0.70f, 0.30f, 0.85f);
+        pOutline.effectDistance = new Vector2(2f, -2f);
+
+        // Revealed Time Display Box
+        GameObject timeBoxObj = new GameObject("TimeBox", typeof(RectTransform));
+        timeBoxObj.transform.SetParent(memoryPaintingPreviewPanel.transform, false);
+        RectTransform tbRt = timeBoxObj.GetComponent<RectTransform>();
+        tbRt.anchorMin = new Vector2(0.5f, 0f);
+        tbRt.anchorMax = new Vector2(0.5f, 0f);
+        tbRt.pivot = new Vector2(0.5f, 0f);
+        tbRt.anchoredPosition = new Vector2(0, 85);
+        tbRt.sizeDelta = new Vector2(380, 130);
+
+        Image tbBg = timeBoxObj.AddComponent<Image>();
+        tbBg.color = new Color(0.09f, 0.13f, 0.22f, 0.95f);
+
+        Outline tbOutline = timeBoxObj.AddComponent<Outline>();
+        tbOutline.effectColor = new Color(0.35f, 0.55f, 0.85f, 0.6f);
+        tbOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+        GameObject tbTextObj = new GameObject("Text", typeof(RectTransform));
+        tbTextObj.transform.SetParent(timeBoxObj.transform, false);
+        RectTransform tbtRt = tbTextObj.GetComponent<RectTransform>();
+        tbtRt.anchorMin = Vector2.zero;
+        tbtRt.anchorMax = Vector2.one;
+        tbtRt.offsetMin = new Vector2(10, 8);
+        tbtRt.offsetMax = new Vector2(-10, -8);
+
+        TextMeshProUGUI tbTmp = tbTextObj.AddComponent<TextMeshProUGUI>();
+        tbTmp.text = "<b><color=#FFD166>★ REVEALED SECRET TIME ★</color></b>\n" +
+                     "<size=32><color=#38BDF8><b>08:15</b></color></size>\n" +
+                     "<size=14><color=#CBD5E1>Align the Grandfather Clock hands to 8:15 to unlock the magic cupboard!</color></size>";
+        tbTmp.fontSize = 17;
+        tbTmp.alignment = TextAlignmentOptions.Center;
+        tbTmp.color = Color.white;
+
+        // Replay Video Button
+        GameObject replayBtnObj = new GameObject("ReplayBtn", typeof(RectTransform));
+        replayBtnObj.transform.SetParent(memoryPaintingPreviewPanel.transform, false);
+        RectTransform rRt = replayBtnObj.GetComponent<RectTransform>();
+        rRt.anchorMin = new Vector2(0.5f, 0f);
+        rRt.anchorMax = new Vector2(0.5f, 0f);
+        rRt.pivot = new Vector2(0.5f, 0f);
+        rRt.anchoredPosition = new Vector2(0, 22);
+        rRt.sizeDelta = new Vector2(260, 48);
+
+        Image rbImg = replayBtnObj.AddComponent<Image>();
+        rbImg.color = new Color(0.12f, 0.18f, 0.30f, 0.95f);
+
+        Outline rbOutline = replayBtnObj.AddComponent<Outline>();
+        rbOutline.effectColor = new Color(0.95f, 0.80f, 0.35f, 0.85f);
+        rbOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+        Button rBtn = replayBtnObj.AddComponent<Button>();
+        rBtn.onClick.AddListener(() =>
+        {
+            if (UniversalVideoPlayer.Instance != null)
+            {
+                UniversalVideoPlayer.Instance.PlayMemoryPaintingVideo();
+            }
+        });
+
+        GameObject rTextObj = new GameObject("Text", typeof(RectTransform));
+        rTextObj.transform.SetParent(replayBtnObj.transform, false);
+        RectTransform rtRt = rTextObj.GetComponent<RectTransform>();
+        rtRt.anchorMin = Vector2.zero;
+        rtRt.anchorMax = Vector2.one;
+        rtRt.sizeDelta = Vector2.zero;
+
+        TextMeshProUGUI rTmp = rTextObj.AddComponent<TextMeshProUGUI>();
+        rTmp.text = "▶ <b>REPLAY MEMORY VIDEO</b>";
+        rTmp.fontSize = 15;
+        rTmp.alignment = TextAlignmentOptions.Center;
+        rTmp.color = new Color(1f, 0.92f, 0.70f, 1f);
+
+        // Close Button
+        GameObject closeObj = new GameObject("CloseBtn", typeof(RectTransform));
+        closeObj.transform.SetParent(memoryPaintingPreviewPanel.transform, false);
+        RectTransform cRt = closeObj.GetComponent<RectTransform>();
+        cRt.anchorMin = new Vector2(1f, 1f);
+        cRt.anchorMax = new Vector2(1f, 1f);
+        cRt.pivot = new Vector2(0.5f, 0.5f);
+        cRt.anchoredPosition = new Vector2(-22, -22);
+        cRt.sizeDelta = new Vector2(34, 34);
+
+        Image cImg = closeObj.AddComponent<Image>();
+        cImg.color = new Color(0.32f, 0.10f, 0.10f, 0.95f);
+
+        Outline cOutline = closeObj.AddComponent<Outline>();
+        cOutline.effectColor = new Color(0.95f, 0.40f, 0.40f, 0.9f);
+        cOutline.effectDistance = new Vector2(1.5f, -1.5f);
+
+        Button cBtn = closeObj.AddComponent<Button>();
+        cBtn.onClick.AddListener(CloseMemoryPaintingPreview);
+
+        GameObject cTextObj = new GameObject("Text", typeof(RectTransform));
+        cTextObj.transform.SetParent(closeObj.transform, false);
+        RectTransform ctRt = cTextObj.GetComponent<RectTransform>();
+        ctRt.anchorMin = Vector2.zero;
+        ctRt.anchorMax = Vector2.one;
+        ctRt.sizeDelta = Vector2.zero;
+
+        TextMeshProUGUI cTmp = cTextObj.AddComponent<TextMeshProUGUI>();
+        cTmp.text = "X";
+        cTmp.fontSize = 18;
+        cTmp.fontStyle = FontStyles.Bold;
+        cTmp.alignment = TextAlignmentOptions.Center;
+        cTmp.color = new Color(1f, 0.85f, 0.85f, 1f);
     }
 }

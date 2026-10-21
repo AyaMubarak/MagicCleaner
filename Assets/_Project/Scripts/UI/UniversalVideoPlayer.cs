@@ -135,7 +135,9 @@ public class UniversalVideoPlayer : MonoBehaviour
             new ItemVideoMapping { itemId = "Candle", videoUrl = GetStreamingVideoPath("gemini_generated_video_ff76d4f1.mp4") },
             new ItemVideoMapping { itemId = "SecretCode", videoUrl = GetStreamingVideoPath("gemini_generated_video_ff76d4f1.mp4") },
             new ItemVideoMapping { itemId = "Wall", videoUrl = GetStreamingVideoPath("gemini_generated_video_ff76d4f1.mp4") },
-            new ItemVideoMapping { itemId = "WallSecretCode", videoUrl = GetStreamingVideoPath("gemini_generated_video_ff76d4f1.mp4") }
+            new ItemVideoMapping { itemId = "WallSecretCode", videoUrl = GetStreamingVideoPath("gemini_generated_video_ff76d4f1.mp4") },
+            new ItemVideoMapping { itemId = "MemoryPainting", videoUrl = GetStreamingVideoPath("Untitled design.mp4") },
+            new ItemVideoMapping { itemId = "Painting", videoUrl = GetStreamingVideoPath("Untitled design.mp4") }
         };
     }
 
@@ -314,6 +316,16 @@ public class UniversalVideoPlayer : MonoBehaviour
         PlayVideoUrl(path, onComplete, null);
     }
 
+    /// <summary>
+    /// 5. فيديو لوحة الذكريات (Untitled design.mp4) - عند فحص لوحة الذكريات في الغرفة 3
+    /// </summary>
+    public void PlayMemoryPaintingVideo(Action onComplete = null)
+    {
+        string path = GetStreamingVideoPath("Untitled design.mp4");
+        Debug.Log("<color=cyan>[UniversalVideoPlayer]:</color> تشغيل فيديو لوحة الذكريات: " + path);
+        PlayVideoUrl(path, onComplete, null);
+    }
+
     // ================== دوال التوافق القديمة ==================
 
     public bool TryPlayBackstory(Action onFinishCallback, Action onBackCallback = null)
@@ -351,6 +363,11 @@ public class UniversalVideoPlayer : MonoBehaviour
                 PlayWallVideo();
                 return true;
             }
+        }
+        else if (lower.Contains("painting") || lower.Contains("memory") || lower.Contains("time"))
+        {
+            PlayMemoryPaintingVideo();
+            return true;
         }
         return false;
     }

@@ -17,9 +17,9 @@ public class GameNotificationManager : MonoBehaviour
         var channel = new AndroidNotificationChannel()
         {
             Id = ChannelId,
-            Name = "تذكيرات اللعبة",
+            Name = "Game Reminders",
             Importance = Importance.High,
-            Description = "إشعارات العودة للعبة",
+            Description = "Notifications to return to the game",
         };
         AndroidNotificationCenter.RegisterNotificationChannel(channel);
         #endif
@@ -41,7 +41,6 @@ public class GameNotificationManager : MonoBehaviour
         #if UNITY_ANDROID
         if (state == 0)
         {
-            // إذا ألغى التفعيل، احذف كل الإشعارات المجدولة
             AndroidNotificationCenter.CancelAllNotifications();
         }
         #endif
@@ -49,7 +48,6 @@ public class GameNotificationManager : MonoBehaviour
 
     void OnApplicationPause(bool pauseStatus)
     {
-        // عندما يخرج اللاعب من اللعبة وتكون الإشعارات مفعّلة
         if (pauseStatus && PlayerPrefs.GetInt("NotificationsEnabled", 1) == 1)
         {
             ScheduleReturnNotification();
@@ -63,9 +61,9 @@ public class GameNotificationManager : MonoBehaviour
 
         var notification = new AndroidNotification
         {
-            Title = "اشتقنالك! ✨",
-            Text = "ألغاز جديدة بانتظارك، ارجع وكمّل اللعب الآن!",
-            FireTime = DateTime.Now.AddDays(1), // يظهر بعد 24 ساعة من إغلاق اللعبة
+            Title = "We miss you! ✨",
+            Text = "Mysterious puzzles await you. Return and play now!",
+            FireTime = DateTime.Now.AddDays(1),
             SmallIcon = "icon_0",
             LargeIcon = "icon_1"
         };
