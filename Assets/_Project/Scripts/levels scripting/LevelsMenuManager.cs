@@ -540,7 +540,12 @@ public class LevelsMenuManager : MonoBehaviour
         if (string.IsNullOrEmpty(sceneName)) return;
 
         // قائمة المهمات والألغاز المربوطة بالمشهد
-        string[] taskIds = new string[] { "trash", "dust", "candle", "chest", "key", "door" };
+        string[] taskIds = new string[]
+        {
+            "trash", "dust", "candle", "chest", "key", "door",
+            "flask", "herb", "alchemy", "water", "roof",
+            "painting", "memory", "clock_hand", "clock", "cupboard"
+        };
         foreach (string t in taskIds)
         {
             PlayerPrefs.DeleteKey($"{sceneName}_Task_{t}");
@@ -559,6 +564,18 @@ public class LevelsMenuManager : MonoBehaviour
             PlayerPrefs.DeleteKey("Level1_Done");
             PlayerPrefs.DeleteKey("Room2_Unlocked");
             PlayerPrefs.DeleteKey("Level2_Unlocked");
+        }
+
+        if (sceneName == "Room2")
+        {
+            PlayerPrefs.DeleteKey("Room2_Done");
+            PlayerPrefs.DeleteKey("Level2_Done");
+        }
+
+        if (sceneName == "Room3")
+        {
+            PlayerPrefs.DeleteKey("Room3_Done");
+            PlayerPrefs.DeleteKey("Level3_Done");
         }
 
         // مسح مفاتيح مشاهدة الفيديوهات حتى تعود للعمل مع اللعبة الجديدة

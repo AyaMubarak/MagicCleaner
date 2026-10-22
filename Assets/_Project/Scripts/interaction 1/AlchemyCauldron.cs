@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(Collider))]
@@ -199,6 +199,7 @@ public class AlchemyCauldron : MonoBehaviour
         if (added)
         {
             Debug.Log("<color=green>[الوعاء]:</color> تم أخذ الجرعة وتخزينها في الحقيبة بنجاح!");
+            LevelProgressGuide.ReportTask("alchemy");
             // إخفاء الوعاء فوراً من الطاولة
             gameObject.SetActive(false);
         }

@@ -1,6 +1,9 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
+using TMPro;
+using System.Collections;
 
 [RequireComponent(typeof(Collider))]
 public class RoofExitTrigger : MonoBehaviour
@@ -113,23 +116,13 @@ public class RoofExitTrigger : MonoBehaviour
 
             // 1. حفظ إنهاء الغرفة
             PlayerPrefs.SetInt(roomDoneKey, 1);
+            LevelProgressGuide.ReportTask("roof");
 
             // 2. راية فتح شاشة المستويات مباشرة عند دخول القائمة
             PlayerPrefs.SetInt("OpenLevelsDirectly", 1);
             PlayerPrefs.Save();
 
-            // 3. الانتقال إلى مشهد القائمة الرئيسية (أو تشغيل فيديو الانتقال أولاً إن وُجد)
-            if (UniversalVideoPlayer.Instance != null && (UniversalVideoPlayer.Instance.nextLevelVideoClip != null || !string.IsNullOrEmpty(UniversalVideoPlayer.Instance.nextLevelVideoUrl)))
-            {
-                UniversalVideoPlayer.Instance.PlayNextLevelCutscene(() =>
-                {
-                    SceneManager.LoadScene(menuSceneName);
-                });
-            }
-            else
-            {
-                SceneManager.LoadScene(menuSceneName);
-            }
+            StartCoroutine(ShowRoom2Completion());
         }
         else
         {
@@ -141,5 +134,57 @@ public class RoofExitTrigger : MonoBehaviour
 
             Debug.LogWarning("<color=orange>[السطح]:</color> السطح مقفل بإحكام! يجب الحصول على المفتاح أولاً.");
         }
+    }
+
+    private IEnumerator ShowRoom2Completion()
+    {
+        ProceduralAudioGenerator.PlaySound("level_complete", 1.0f);
+
+        Canvas canvas = FindAnyObjectByType<Canvas>();
+        GameObject banner = null;
+        if (canvas != null)
+        {
+            banner = new GameObject("Room2Completion", typeof(RectTransform));
+            banner.transform.SetParent(canvas.transform, false);
+            RectTransform bannerRect = banner.GetComponent<RectTransform>();
+            bannerRect.anchorMin = new Vector2(0.5f, 0.5f);
+            bannerRect.anchorMax = new Vector2(0.5f, 0.5f);
+            bannerRect.sizeDelta = new Vector2(650f, 180f);
+            Image background = banner.AddComponent<Image>();
+            background.color = new Color(0.04f, 0.07f, 0.14f, 0.96f);
+            Outline outline = banner.AddComponent<Outline>();
+            outline.effectColor = new Color(1f, 0.82f, 0.2f, 1f);
+            outline.effectDistance = new Vector2(4f, -4f);
+
+            GameObject textObject = new GameObject("Text", typeof(RectTransform));
+            textObject.transform.SetParent(banner.transform, false);
+            RectTransform textRect = textObject.GetComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.sizeDelta = Vector2.zero;
+            TextMeshProUGUI text = textObject.AddComponent<TextMeshProUGUI>();
+            text.text = "★ LEVEL 2 COMPLETED! ★\n<size=26><color=#4ADE80>CONGRATULATIONS!</color></size>";
+            text.fontSize = 34f;
+            text.fontStyle = FontStyles.Bold;
+            text.alignment = TextAlignmentOptions.Center;
+            text.color = new Color(1f, 0.88f, 0.35f, 1f);
+
+            for (int i = 0; i < 36; i++)
+            {
+                GameObject confetti = new GameObject("Confetti", typeof(RectTransform), typeof(Image));
+                confetti.transform.SetParent(canvas.transform, false);
+                RectTransform confettiRect = confetti.GetComponent<RectTransform>();
+                confettiRect.anchorMin = new Vector2(0.5f, 0.5f);
+                confettiRect.anchorMax = new Vector2(0.5f, 0.5f);
+                confettiRect.anchoredPosition = new Vector2(Random.Range(-500f, 500f), Random.Range(-300f, 300f));
+                confettiRect.sizeDelta = new Vector2(12f, 12f);
+                confetti.GetComponent<Image>().color = Color.HSVToRGB(Random.value, 0.8f, 1f);
+                Destroy(confetti, 4f);
+            }
+        }
+
+        yield return new WaitForSeconds(4f);
+        if (banner != null) Destroy(banner);
+        SceneManager.LoadScene(menuSceneName);
     }
 }

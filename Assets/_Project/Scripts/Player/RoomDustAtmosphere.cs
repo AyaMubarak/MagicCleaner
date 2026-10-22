@@ -153,6 +153,11 @@ public class RoomDustAtmosphere : MonoBehaviour
     public static bool IsRoomCompletedOrWon()
     {
         string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        if (sceneName == "Room2")
+        {
+            return PlayerPrefs.GetInt("Room2_Task_roof", 0) == 1 ||
+                   (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("roof"));
+        }
         return PlayerPrefs.GetInt("Room1_Done", 0) == 1 || 
                PlayerPrefs.GetInt("Level1_Done", 0) == 1 || 
                PlayerPrefs.GetInt("Room1_Won", 0) == 1 ||
@@ -260,7 +265,7 @@ public class RoomDustAtmosphere : MonoBehaviour
             RenderSettings.ambientIntensity = 1.40f;
             RenderSettings.ambientLight = new Color(1f, 0.98f, 0.92f);
 
-            Light[] allLights = FindObjectsByType<Light>(FindObjectsSortMode.None);
+            Light[] allLights = FindObjectsByType<Light>();
             foreach (Light l in allLights)
             {
                 if (l.type == LightType.Directional)
@@ -280,24 +285,47 @@ public class RoomDustAtmosphere : MonoBehaviour
                 var em = ps.emission;
                 em.enabled = false;
             }
+            if (sceneName == "Room2") SetRoom2Overlay(-1f);
             return;
         }
 
+        int room2Steps = -1;
+        if (sceneName == "Room2")
+        {
+            // غرفة 2: نفس الفكرة لكن بمهامها (الجرعة، النبتة، المفتاح)
+            trashDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("alchemy")) || PlayerPrefs.GetInt("Room2_Task_alchemy", 0) == 1;
+            dustDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("water")) || PlayerPrefs.GetInt("Room2_Task_water", 0) == 1;
+            candleDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("key")) || PlayerPrefs.GetInt("Room2_Task_key", 0) == 1;
+            chestOrKeyDone = false;
+            bool flaskDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("flask")) || PlayerPrefs.GetInt("Room2_Task_flask", 0) == 1;
+            bool herbDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("herb")) || PlayerPrefs.GetInt("Room2_Task_herb", 0) == 1;
+            room2Steps = (flaskDone ? 1 : 0) + (herbDone ? 1 : 0) + (trashDone ? 1 : 0) + (dustDone ? 1 : 0) + (candleDone ? 1 : 0);
+        }
+
         int completedSteps = (trashDone ? 1 : 0) + (dustDone ? 1 : 0) + (candleDone ? 1 : 0) + (chestOrKeyDone ? 1 : 0);
-        float stepProgress = (float)completedSteps / 4f;
+        float stepProgress = room2Steps >= 0 ? room2Steps / 5f : (float)completedSteps / 4f;
+        if (room2Steps >= 0) SetRoom2Overlay(Mathf.Lerp(0.78f, 0.35f, stepProgress));
 
         // أثناء حل الألغاز: يخف التعتيم شوية صغيرة فقط، وتبقى الغرفة معتمة حتى فتح الباب
         // من 0.04f إلى 0.16f كحد أقصى (تخفيف طفيف للغموض مع وضوح الألغاز)
         float targetAmbientIntensity = Mathf.Lerp(0.04f, 0.16f, stepProgress);
         Color targetAmbientColor = Color.Lerp(new Color(0.02f, 0.03f, 0.05f), new Color(0.12f, 0.13f, 0.16f), stepProgress);
+        bool isRoom2 = room2Steps >= 0;
+        if (isRoom2)
+        {
+            // غرفة 2: عتمة أكثر بكثير
+            targetAmbientIntensity = Mathf.Lerp(0.0f, 0.05f, stepProgress);
+            targetAmbientColor = Color.Lerp(new Color(0.005f, 0.008f, 0.015f), new Color(0.04f, 0.045f, 0.06f), stepProgress);
+            RenderSettings.reflectionIntensity = Mathf.Lerp(0.0f, 0.1f, stepProgress);
+        }
 
         RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
         RenderSettings.ambientIntensity = targetAmbientIntensity;
         RenderSettings.ambientLight = targetAmbientColor;
 
-        float targetDirIntensity = Mathf.Lerp(0.05f, 0.18f, stepProgress);
+        float targetDirIntensity = isRoom2 ? Mathf.Lerp(0.0f, 0.04f, stepProgress) : Mathf.Lerp(0.05f, 0.18f, stepProgress);
 
-        Light[] lights = FindObjectsByType<Light>(FindObjectsSortMode.None);
+        Light[] lights = FindObjectsByType<Light>();
         foreach (Light l in lights)
         {
             if (l.type == LightType.Directional)
@@ -312,8 +340,12 @@ public class RoomDustAtmosphere : MonoBehaviour
                 }
                 else
                 {
-                    l.intensity = Mathf.Lerp(0.06f, 0.20f, stepProgress);
+                    l.intensity = isRoom2 ? Mathf.Lerp(0.01f, 0.06f, stepProgress) : Mathf.Lerp(0.06f, 0.20f, stepProgress);
                 }
+            }
+            else if (isRoom2 && l.type == LightType.Spot)
+            {
+                l.intensity = Mathf.Lerp(0.02f, 0.1f, stepProgress);
             }
         }
 
@@ -322,6 +354,35 @@ public class RoomDustAtmosphere : MonoBehaviour
             var em = ps.emission;
             em.rateOverTime = Mathf.Lerp(35f, 22f, stepProgress);
         }
+    }
+
+    private static GameObject room2Overlay;
+    private static UnityEngine.UI.Image room2OverlayImg;
+
+    /// <summary>Room2 only: dark screen overlay beneath all UI. alpha &lt; 0 removes it.</summary>
+    private static void SetRoom2Overlay(float alpha)
+    {
+        if (alpha < 0f)
+        {
+            if (room2Overlay != null) Object.Destroy(room2Overlay);
+            room2Overlay = null; room2OverlayImg = null;
+            return;
+        }
+        if (room2Overlay == null)
+        {
+            room2Overlay = new GameObject("Room2DarknessOverlay");
+            Canvas c = room2Overlay.AddComponent<Canvas>();
+            c.renderMode = RenderMode.ScreenSpaceOverlay;
+            c.sortingOrder = -100;
+            GameObject img = new GameObject("Dark", typeof(RectTransform));
+            img.transform.SetParent(room2Overlay.transform, false);
+            RectTransform rt = img.GetComponent<RectTransform>();
+            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
+            rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
+            room2OverlayImg = img.AddComponent<UnityEngine.UI.Image>();
+            room2OverlayImg.raycastTarget = false;
+        }
+        if (room2OverlayImg != null) room2OverlayImg.color = new Color(0.01f, 0.015f, 0.03f, alpha);
     }
 
     public void ReduceDustAfterCleaning()

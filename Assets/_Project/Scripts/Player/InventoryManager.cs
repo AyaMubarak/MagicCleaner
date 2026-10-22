@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -219,12 +219,63 @@ public class InventoryManager : MonoBehaviour
         return CreateProceduralNoteSprite();
     }
 
+    public static Sprite GetPotionSprite()
+    {
+        string p = System.IO.Path.Combine(Application.dataPath, "_Project/potion.png");
+        if (System.IO.File.Exists(p))
+        {
+            byte[] bytes = System.IO.File.ReadAllBytes(p);
+            Texture2D diskTex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            diskTex.LoadImage(bytes);
+            return Sprite.Create(diskTex, new Rect(0, 0, diskTex.width, diskTex.height), new Vector2(0.5f, 0.5f));
+        }
+        return null;
+    }
+
+    public static Sprite GetBottleSprite()
+    {
+        string p = System.IO.Path.Combine(Application.dataPath, "_Project/bottle.png");
+        if (System.IO.File.Exists(p))
+        {
+            byte[] bytes = System.IO.File.ReadAllBytes(p);
+            Texture2D diskTex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            diskTex.LoadImage(bytes);
+            return Sprite.Create(diskTex, new Rect(0, 0, diskTex.width, diskTex.height), new Vector2(0.5f, 0.5f));
+        }
+        return null;
+    }
+
+    public static Sprite GetMortarSprite()
+    {
+        string p = System.IO.Path.Combine(Application.dataPath, "_Project/mortar.png");
+        if (System.IO.File.Exists(p))
+        {
+            byte[] bytes = System.IO.File.ReadAllBytes(p);
+            Texture2D diskTex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            diskTex.LoadImage(bytes);
+            return Sprite.Create(diskTex, new Rect(0, 0, diskTex.width, diskTex.height), new Vector2(0.5f, 0.5f));
+        }
+        return null;
+    }
+
     public static Sprite ResolveItemIcon(string itemId)
     {
         if (string.IsNullOrEmpty(itemId)) return null;
         string lower = itemId.ToLower();
 
-        if (lower.Contains("book"))
+        if (lower.Contains("acidpotion") || lower.Contains("potion"))
+        {
+            return GetPotionSprite();
+        }
+        else if (lower.Contains("waterflask") || lower.Contains("bottle") || lower.Contains("flask"))
+        {
+            return GetBottleSprite();
+        }
+        else if (lower.Contains("herb") || lower.Contains("mortar"))
+        {
+            return GetMortarSprite();
+        }
+        else if (lower.Contains("book"))
         {
             return GetBookSprite();
         }
@@ -275,6 +326,7 @@ public class InventoryManager : MonoBehaviour
 
     public void SaveInventoryToDisk()
     {
+        string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
         List<string> savedIds = new List<string>();
         for (int i = 0; i < inventoryItems.Count; i++)
         {
@@ -283,7 +335,7 @@ public class InventoryManager : MonoBehaviour
                 savedIds.Add(inventoryItems[i].id);
             }
         }
-        PlayerPrefs.SetString("SavedInventory_ItemIDs", string.Join(";", savedIds));
+        PlayerPrefs.SetString(sceneName + "_SavedInventory_ItemIDs", string.Join(";", savedIds));
         PlayerPrefs.Save();
     }
 
@@ -292,8 +344,8 @@ public class InventoryManager : MonoBehaviour
         inventoryItems.Clear();
         string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
 
-        // 1. استرجاع الأدوات من السلسلة المحفوظة بالقرص
-        string raw = PlayerPrefs.GetString("SavedInventory_ItemIDs", "");
+        // 1. استرجاع الأدوات من السلسلة المحفوظة بالقرص للغرفة الحالية فقط
+        string raw = PlayerPrefs.GetString(sceneName + "_SavedInventory_ItemIDs", "");
         if (!string.IsNullOrEmpty(raw))
         {
             string[] ids = raw.Split(new char[] { ';' }, System.StringSplitOptions.RemoveEmptyEntries);
@@ -305,74 +357,86 @@ public class InventoryManager : MonoBehaviour
             }
         }
 
-        // 2. التحقق من المهام المنجزة وضمان بقاء كل أداة جناها اللاعب داخل حقيبته
-        bool dustDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("dust"))
-                        || PlayerPrefs.GetInt(sceneName + "_Task_dust", 0) == 1
-                        || PlayerPrefs.GetInt("HasItem_SecretBook", 0) == 1;
-
-        if (dustDone && !HasItem("SecretBook") && !HasItem("Book"))
+        // 2. التحقق من المهام المنجزة وضمان بقاء كل أداة جناها اللاعب داخل حقيبته بحسب الغرفة النشطة فقط
+        if (sceneName == "Room1")
         {
-            inventoryItems.Add(new InventoryEntry { id = "SecretBook", icon = GetBookSprite() });
-        }
+            bool dustDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("dust"))
+                            || PlayerPrefs.GetInt("Room1_Task_dust", 0) == 1
+                            || PlayerPrefs.GetInt("HasItem_SecretBook", 0) == 1;
 
-        bool keyDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("key"))
-                       || PlayerPrefs.GetInt(sceneName + "_Task_key", 0) == 1
-                       || PlayerPrefs.GetInt("HasItem_ChestKey", 0) == 1;
-
-        bool doorDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("door"))
-                        || PlayerPrefs.GetInt(sceneName + "_Task_door", 0) == 1
-                        || PlayerPrefs.GetInt("Room1_Done", 0) == 1;
-
-        // المفتاح يبقى في الحقيبة إذا التقطه اللاعب ولم يفتح الباب بعد
-        if (keyDone && !doorDone && !HasItem("ChestKey") && !HasItem("key"))
-        {
-            inventoryItems.Add(new InventoryEntry { id = "ChestKey", icon = GetKeySprite() });
-        }
-
-        bool candleDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("candle"))
-                          || PlayerPrefs.GetInt(sceneName + "_Task_candle", 0) == 1
-                          || PlayerPrefs.GetInt("HasItem_SecretCode", 0) == 1;
-
-        if (candleDone && !HasItem("SecretCode") && !HasItem("code"))
-        {
-            inventoryItems.Add(new InventoryEntry { id = "SecretCode", icon = GetNoteSprite() });
-        }
-
-        // إذا تم إشعال الشمعة فالقداحة تم استهلاكها وحذفها تماماً ولا تظهر بالحقيبة
-        if (candleDone)
-        {
-            inventoryItems.RemoveAll(x => x.id.Equals("Flint", System.StringComparison.OrdinalIgnoreCase) 
-                                       || x.id.Equals("flint", System.StringComparison.OrdinalIgnoreCase));
-        }
-        else
-        {
-            bool trashDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("trash"))
-                             || PlayerPrefs.GetInt(sceneName + "_Task_trash", 0) == 1;
-
-            if (trashDone && !HasItem("Flint") && !HasItem("flint"))
+            if (dustDone && !HasItem("SecretBook") && !HasItem("Book"))
             {
-                inventoryItems.Add(new InventoryEntry { id = "Flint", icon = GetFlintSprite() });
+                inventoryItems.Add(new InventoryEntry { id = "SecretBook", icon = GetBookSprite() });
+            }
+
+            bool keyDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("key"))
+                           || PlayerPrefs.GetInt("Room1_Task_key", 0) == 1
+                           || PlayerPrefs.GetInt("HasItem_ChestKey", 0) == 1;
+
+            bool doorDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("door"))
+                            || PlayerPrefs.GetInt("Room1_Task_door", 0) == 1
+                            || PlayerPrefs.GetInt("Room1_Done", 0) == 1;
+
+            if (keyDone && !doorDone && !HasItem("ChestKey") && !HasItem("key"))
+            {
+                inventoryItems.Add(new InventoryEntry { id = "ChestKey", icon = GetKeySprite() });
+            }
+
+            bool candleDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("candle"))
+                              || PlayerPrefs.GetInt("Room1_Task_candle", 0) == 1
+                              || PlayerPrefs.GetInt("HasItem_SecretCode", 0) == 1;
+
+            if (candleDone && !HasItem("SecretCode") && !HasItem("code"))
+            {
+                inventoryItems.Add(new InventoryEntry { id = "SecretCode", icon = GetNoteSprite() });
+            }
+
+            if (candleDone)
+            {
+                inventoryItems.RemoveAll(x => x.id.Equals("Flint", System.StringComparison.OrdinalIgnoreCase) 
+                                           || x.id.Equals("flint", System.StringComparison.OrdinalIgnoreCase));
+            }
+            else
+            {
+                bool trashDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("trash"))
+                                 || PlayerPrefs.GetInt("Room1_Task_trash", 0) == 1;
+
+                if (trashDone && !HasItem("Flint") && !HasItem("flint"))
+                {
+                    inventoryItems.Add(new InventoryEntry { id = "Flint", icon = GetFlintSprite() });
+                }
             }
         }
-
-        // 3. التحقق من لوحة الذكريات للغرفة 3
-        bool paintingDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("painting"))
-                            || PlayerPrefs.GetInt(sceneName + "_Task_painting", 0) == 1
-                            || PlayerPrefs.GetInt("HasItem_MemoryPainting", 0) == 1;
-
-        if (paintingDone && !HasItem("MemoryPainting"))
+        else if (sceneName == "Room3")
         {
-            inventoryItems.Add(new InventoryEntry { id = "MemoryPainting", icon = GetMemoryPaintingSprite() });
+            // التحقق من لوحة الذكريات للغرفة 3 فقط
+            bool paintingDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("painting"))
+                                || PlayerPrefs.GetInt("Room3_Task_painting", 0) == 1
+                                || PlayerPrefs.GetInt("HasItem_MemoryPainting", 0) == 1;
+
+            if (paintingDone && !HasItem("MemoryPainting"))
+            {
+                inventoryItems.Add(new InventoryEntry { id = "MemoryPainting", icon = GetMemoryPaintingSprite() });
+            }
         }
+        // Room2 تحتفظ بأدواتها الخاصة (الجرعات والمكونات) عبر السلسلة الخاصة بها Room2_SavedInventory_ItemIDs
 
         ValidateAndRefreshIcons();
         SaveInventoryToDisk();
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void ResetStaleProgressOnLaunch()
+    {
     }
 
     public static void ResetInventoryData()
     {
         persistentItems.Clear();
         PlayerPrefs.DeleteKey("SavedInventory_ItemIDs");
+        PlayerPrefs.DeleteKey("Room1_SavedInventory_ItemIDs");
+        PlayerPrefs.DeleteKey("Room2_SavedInventory_ItemIDs");
+        PlayerPrefs.DeleteKey("Room3_SavedInventory_ItemIDs");
         PlayerPrefs.DeleteKey("HasItem_SecretBook");
         PlayerPrefs.DeleteKey("HasItem_SecretCode");
         PlayerPrefs.DeleteKey("HasItem_ChestKey");
@@ -607,6 +671,10 @@ public class InventoryManager : MonoBehaviour
             else if (SelectedItem.Contains("Code") || SelectedItem.Contains("code"))
             {
                 OpenNotePreview();
+            }
+            else if (SelectedItem.Contains("Painting") || SelectedItem.Contains("painting"))
+            {
+                OpenMemoryPaintingPreview();
             }
         }
         else
@@ -868,7 +936,7 @@ public class InventoryManager : MonoBehaviour
 
     private void BuildMemoryPaintingInspectPanel()
     {
-        Canvas parentCanvas = inventoryCanvasGroup != null ? inventoryCanvasGroup.GetComponentInParent<Canvas>() : FindFirstObjectByType<Canvas>();
+        Canvas parentCanvas = inventoryCanvasGroup != null ? inventoryCanvasGroup.GetComponentInParent<Canvas>() : FindAnyObjectByType<Canvas>();
         if (parentCanvas == null) return;
 
         memoryPaintingPreviewPanel = new GameObject("MemoryPainting_InspectPanel", typeof(RectTransform));

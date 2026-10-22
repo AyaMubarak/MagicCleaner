@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 [RequireComponent(typeof(Collider))]
 public class CollectibleItem : MonoBehaviour
@@ -15,6 +15,46 @@ public class CollectibleItem : MonoBehaviour
 
     private bool isCollected = false;
 
+    public string ItemID => itemID;
+
+    private void Awake()
+    {
+        Collider[] colliders = GetComponentsInChildren<Collider>();
+        bool hasUsableCollider = false;
+        foreach (Collider currentCollider in colliders)
+        {
+            MeshCollider meshCollider = currentCollider as MeshCollider;
+            if (currentCollider.enabled && (meshCollider == null || meshCollider.sharedMesh != null))
+            {
+                hasUsableCollider = true;
+                break;
+            }
+        }
+
+        if (!hasUsableCollider)
+        {
+            BoxCollider fallbackCollider = gameObject.AddComponent<BoxCollider>();
+            Bounds bounds = new Bounds(transform.position, Vector3.one * 0.5f);
+            Renderer[] renderers = GetComponentsInChildren<Renderer>();
+            foreach (Renderer currentRenderer in renderers)
+            {
+                bounds.Encapsulate(currentRenderer.bounds);
+            }
+
+            fallbackCollider.center = transform.InverseTransformPoint(bounds.center);
+            fallbackCollider.size = bounds.size;
+        }
+    }
+
+    public Vector3 TargetPosition
+    {
+        get
+        {
+            Collider targetCollider = GetComponentInChildren<Collider>();
+            return targetCollider != null ? targetCollider.bounds.center : transform.position;
+        }
+    }
+
     private void Update()
     {
         if (isCollected) return;
@@ -29,7 +69,8 @@ public class CollectibleItem : MonoBehaviour
             Ray ray = cam.ScreenPointToRay(Input.mousePosition);
             if (Physics.Raycast(ray, out RaycastHit hit, maxDistance))
             {
-                if (hit.transform == transform || hit.transform.IsChildOf(transform))
+                CollectibleItem hitItem = hit.collider.GetComponentInParent<CollectibleItem>();
+                if (hitItem == this)
                 {
                     Collect();
                 }
@@ -52,8 +93,18 @@ public class CollectibleItem : MonoBehaviour
         if (added)
         {
             isCollected = true;
+            gameObject.SetActive(false); // أخفِ العنصر قبل تحديث هدف الجنية
+            if (itemID.Equals("ExitKey", System.StringComparison.OrdinalIgnoreCase))
+            {
+                LevelProgressGuide.ReportTask("key");
+            }
+            else if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name == "Room2")
+            {
+                if (itemID.Equals("WaterFlask", System.StringComparison.OrdinalIgnoreCase)) LevelProgressGuide.ReportTask("flask");
+                else if (itemID.Equals("Herb", System.StringComparison.OrdinalIgnoreCase)) LevelProgressGuide.ReportTask("herb");
+            
+            }
             Debug.Log($"<color=green>[الالتقاط]:</color> تم أخذ {itemID} وإضافته للحقيبة.");
-            gameObject.SetActive(false); // إخفاء المجسم من الغرفة
         }
     }
 }

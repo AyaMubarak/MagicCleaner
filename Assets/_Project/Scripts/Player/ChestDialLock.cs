@@ -72,7 +72,7 @@ public class ChestDialLock : MonoBehaviour
         // العثور على المفتاح إذا لم يكن مربوطاً في المفتش (Inspector)
         if (keyInsideChest == null)
         {
-            KeyInteraction keyComp = FindObjectOfType<KeyInteraction>(true);
+            KeyInteraction keyComp = FindAnyObjectByType<KeyInteraction>(FindObjectsInactive.Include);
             if (keyComp != null)
             {
                 keyInsideChest = keyComp.gameObject;
@@ -159,7 +159,7 @@ public class ChestDialLock : MonoBehaviour
 
             if (!keyDone)
             {
-                KeyInteraction keyComp = FindObjectOfType<KeyInteraction>(true);
+                KeyInteraction keyComp = FindAnyObjectByType<KeyInteraction>(FindObjectsInactive.Include);
                 if (keyComp != null)
                 {
                     keyComp.gameObject.SetActive(true);
@@ -449,7 +449,7 @@ public class ChestDialLock : MonoBehaviour
         // إظهار المفتاح داخل الصندوق فوراً للاعب
         if (keyInsideChest == null)
         {
-            KeyInteraction keyComp = FindObjectOfType<KeyInteraction>(true);
+            KeyInteraction keyComp = FindAnyObjectByType<KeyInteraction>(FindObjectsInactive.Include);
             if (keyComp != null)
             {
                 keyInsideChest = keyComp.gameObject;

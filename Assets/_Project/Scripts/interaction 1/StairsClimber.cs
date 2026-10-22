@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -14,7 +14,7 @@ public class StairsClimber : MonoBehaviour
 
     [Header("Roof Object")]
     [Tooltip("مجسم فتحة السطح")]
-    [SerializeField] private GameObject ceilingTrapdoor;
+    [SerializeField] public GameObject ceilingTrapdoor;
 
     [Header("Next Scene")]
     [SerializeField] private string nextSceneName = "Room3";

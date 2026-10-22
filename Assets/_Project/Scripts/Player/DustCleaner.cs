@@ -189,7 +189,7 @@ public class DustCleaner : MonoBehaviour, IDragHandler
         }
 
         // البحث عن أي كائن BookInteraction أو كائنات الكتاب المرئية على الطاولة وإخفائها
-        BookInteraction[] books = Object.FindObjectsByType<BookInteraction>(FindObjectsSortMode.None);
+        BookInteraction[] books = Object.FindObjectsByType<BookInteraction>();
         foreach (var b in books)
         {
             if (b != null)

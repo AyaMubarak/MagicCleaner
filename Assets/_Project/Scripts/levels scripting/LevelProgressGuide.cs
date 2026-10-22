@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -224,10 +224,10 @@ public class LevelProgressGuide : MonoBehaviour
         {
             if (tasks[i].id.Equals(taskId, System.StringComparison.OrdinalIgnoreCase))
             {
+                found = true;
                 if (!tasks[i].isCompleted)
                 {
                     tasks[i].isCompleted = true;
-                    found = true;
                     Debug.Log($"<color=#00FFA3>[Quest Guide]:</color> Completed: {tasks[i].title}");
 
                     if (playChimeOnComplete)
@@ -384,6 +384,12 @@ public class LevelProgressGuide : MonoBehaviour
         bool foundTarget = false;
 
         string id = currentActiveTask.id.ToLower();
+        if (SceneManager.GetActiveScene().name == "Room2")
+        {
+            id = GetRoom2HintTaskId();
+        }
+
+        Debug.Log($"[Fairy Hint] Current task: {currentActiveTask.id} | Selected objective: {id}");
 
         if (id.Contains("dust"))
         {
@@ -423,31 +429,123 @@ public class LevelProgressGuide : MonoBehaviour
                 if (obj != null) { targetPos = obj.transform.position + Vector3.up * 0.45f; foundTarget = true; }
             }
         }
-        else if (id.Contains("key"))
+        else if (id == "flask" || id == "herb")
         {
-            GameObject obj = GameObject.Find("key") ?? GameObject.Find("ChestKey");
-            if (obj != null) { targetPos = obj.transform.position; foundTarget = true; }
+            string[] names = id == "flask"
+                ? new[] { "Water BOTTLE secret" }
+                : new[] { "herb_bowls" };
+
+            if (id == "herb")
+            {
+                GameObject herbTable = GameObject.Find("Table01");
+                if (herbTable != null && herbTable.activeInHierarchy)
+                {
+                    targetPos = herbTable.transform.position + Vector3.up * 1.5f;
+                    foundTarget = true;
+                }
+            }
+
+            foreach (string name in names)
+            {
+                if (foundTarget) break;
+                GameObject objective = GameObject.Find(name);
+                if (objective != null && objective.activeInHierarchy)
+                {
+                    CollectibleItem collectible = objective.GetComponent<CollectibleItem>() ??
+                                                  objective.GetComponentInParent<CollectibleItem>() ??
+                                                  objective.GetComponentInChildren<CollectibleItem>();
+                    targetPos = objective.transform.position;
+                    foundTarget = true;
+                    break;
+                }
+            }
+
+            if (!foundTarget && id == "herb")
+            {
+                CollectibleItem[] collectibles = Object.FindObjectsByType<CollectibleItem>();
+                foreach (CollectibleItem collectible in collectibles)
+                {
+                    if (collectible != null && collectible.gameObject.activeInHierarchy &&
+                        collectible.ItemID.Equals("Herb", System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        targetPos = collectible.transform.position;
+                        foundTarget = true;
+                        break;
+                    }
+                }
+            }
         }
-        else if (id.Contains("door") || id.Contains("roof"))
+        else if (id.Contains("alchemy") || id.Contains("cauldron") || id.Contains("brew"))
         {
-            GameObject obj = GameObject.Find("Door") ?? GameObject.Find("ExitDoor") ?? GameObject.Find("Trapdoor");
-            if (obj != null) { targetPos = obj.transform.position; foundTarget = true; }
+            GameObject obj = GameObject.Find("secret bowl ") ?? GameObject.Find("secret bowl") ?? GameObject.Find("AlchemyCauldron");
+            if (obj != null && obj.activeInHierarchy)
+            {
+                targetPos = obj.transform.position;
+                foundTarget = true;
+            }
         }
         else if (id.Contains("plant") || id.Contains("water"))
         {
-            GameObject obj = GameObject.Find("Plant") ?? GameObject.Find("free_pothos_potted_plant");
-            if (obj != null) { targetPos = obj.transform.position; foundTarget = true; }
+            GameObject obj = GameObject.Find("Workbench plant") ?? GameObject.Find("plant") ?? GameObject.Find("Plant");
+            if (obj != null && obj.activeInHierarchy)
+            {
+                targetPos = obj.transform.position + Vector3.up * 1.5f;
+                foundTarget = true;
+            }
         }
-        else if (id.Contains("alchemy") || id.Contains("cauldron"))
+        else if (id.Contains("key"))
         {
-            GameObject obj = GameObject.Find("Cauldron") ?? GameObject.Find("AlchemyCauldron");
-            if (obj != null) { targetPos = obj.transform.position; foundTarget = true; }
+            GameObject obj = GameObject.Find("key") ?? GameObject.Find("ExitKey") ?? GameObject.Find("ChestKey");
+            if (obj != null && obj.activeInHierarchy) { targetPos = obj.transform.position; foundTarget = true; }
+            else
+            {
+                // إذا لم يظهر المفتاح بعد، توجيه اللاعب نحو النبتة
+                QuickPlantRevive plant = Object.FindAnyObjectByType<QuickPlantRevive>();
+                if (plant != null) { targetPos = plant.transform.position + Vector3.up * 0.35f; foundTarget = true; }
+            }
+        }
+        else if (id.Contains("door") || id.Contains("roof"))
+        {
+            GameObject stairsObject = GameObject.Find("Stairs");
+            if (stairsObject != null && stairsObject.activeInHierarchy)
+            {
+                targetPos = stairsObject.transform.position + Vector3.up * 1.0f;
+                foundTarget = true;
+            }
+            else
+            {
+                GameObject obj = GameObject.Find("StairsTop") ?? GameObject.Find("StairsBottom") ?? GameObject.Find("Door") ?? GameObject.Find("ExitDoor") ?? GameObject.Find("Trapdoor");
+                if (obj != null) { targetPos = obj.transform.position; foundTarget = true; }
+            }
         }
 
         if (foundTarget)
         {
+            Debug.Log($"[Fairy Hint] Target found for '{id}' at world position {targetPos}");
             MagicalFairyCompanion.Instance.FlyToWorldTarget(targetPos);
         }
+        else
+        {
+            Debug.LogWarning($"[Fairy Hint] No target found for '{id}'. Fairy will stay at its idle position.");
+        }
+    }
+
+    private string GetRoom2HintTaskId()
+    {
+        if (!IsTaskDone("flask"))
+            return "flask";
+
+        if (!IsTaskDone("herb"))
+            return "herb";
+
+        if (!IsTaskDone("alchemy") &&
+            (InventoryManager.Instance == null || !InventoryManager.Instance.HasItem("AcidPotion")))
+            return "alchemy";
+
+        if (!IsTaskDone("water"))
+            return "water";
+
+        return "roof";
     }
 
     public void CloseHintBubble()
@@ -535,9 +633,11 @@ public class LevelProgressGuide : MonoBehaviour
 
         if (sceneName == "Room2")
         {
-            tasks.Add(new TaskInfo { id = "water", title = "Revive Plant", hint = "Find water or elixir to revive the dried magic plant on the table." });
-            tasks.Add(new TaskInfo { id = "alchemy", title = "Brew Potion", hint = "Collect ingredients and brew the formula in the alchemy cauldron." });
-            tasks.Add(new TaskInfo { id = "key", title = "Find Exit Key", hint = "Take the roof exit key revealed by the puzzle." });
+            tasks.Add(new TaskInfo { id = "flask", title = "Take Water Flask", hint = "Find and take the water flask." });
+            tasks.Add(new TaskInfo { id = "herb", title = "Take Herb", hint = "Find and take the herb." });
+            tasks.Add(new TaskInfo { id = "alchemy", title = "Brew Potion", hint = "Collect the water flask and herbs, then brew the formula in the cauldron." });
+            tasks.Add(new TaskInfo { id = "water", title = "Revive Plant", hint = "Select the acid potion from your bag and revive the magic plant on the table." });
+            tasks.Add(new TaskInfo { id = "key", title = "Find Exit Key", hint = "Take the roof exit key revealed by the revived plant." });
             tasks.Add(new TaskInfo { id = "roof", title = "Unlock Roof", hint = "Climb the wooden stairs and use the key on the trapdoor to escape." });
         }
         else
@@ -707,6 +807,11 @@ public class LevelProgressGuide : MonoBehaviour
         fillRect.offsetMin = Vector2.zero;
         fillRect.offsetMax = Vector2.zero;
         Image fillImage = fillObj.AddComponent<Image>();
+        if (SceneManager.GetActiveScene().name == "Room2")
+        {
+            Texture2D wt = Texture2D.whiteTexture;
+            fillImage.sprite = Sprite.Create(wt, new Rect(0, 0, wt.width, wt.height), new Vector2(0.5f, 0.5f));
+        }
         fillImage.color = new Color(0.0f, 0.90f, 0.65f, 1f);
         fillImage.type = Image.Type.Filled;
         fillImage.fillMethod = Image.FillMethod.Horizontal;

@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 [RequireComponent(typeof(Collider))]
 public class QuickPlantRevive : MonoBehaviour
@@ -93,6 +93,7 @@ public class QuickPlantRevive : MonoBehaviour
                 }
 
                 puzzleStage = 1;
+                LevelProgressGuide.ReportTask("water");
                 Debug.Log("<color=green>[النبتة]:</color> لقد أزهرت النبتة وأصبحت قوية! اضغطي عليها مرة أخرى لإزاحتها وأخذ المفتاح.");
             }
             else

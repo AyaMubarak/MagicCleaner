@@ -32,6 +32,7 @@ public class Room3MemoryPainting : MonoBehaviour
 
     private Camera mainCam;
     private bool isInspected = false;
+    public bool IsInspected => isInspected;
     private bool isVideoPlaying = false;
     private readonly List<Collider> registeredPaintingColliders = new List<Collider>();
 
@@ -45,7 +46,7 @@ public class Room3MemoryPainting : MonoBehaviour
         string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
         if (sceneName == "Room3")
         {
-            if (FindFirstObjectByType<Room3MemoryPainting>() == null)
+            if (FindAnyObjectByType<Room3MemoryPainting>() == null)
             {
                 GameObject go = new GameObject("Room3_MemoryPainting_Manager");
                 go.AddComponent<Room3MemoryPainting>();
@@ -89,7 +90,7 @@ public class Room3MemoryPainting : MonoBehaviour
             registeredPaintingColliders.Add(targetCollider);
         }
 
-        Renderer[] allRenderers = FindObjectsByType<Renderer>(FindObjectsSortMode.None);
+        Renderer[] allRenderers = FindObjectsByType<Renderer>();
         foreach (Renderer rend in allRenderers)
         {
             if (rend == null) continue;
@@ -331,7 +332,7 @@ public class Room3MemoryPainting : MonoBehaviour
 
         if (UniversalVideoPlayer.Instance == null)
         {
-            UniversalVideoPlayer uvp = FindFirstObjectByType<UniversalVideoPlayer>();
+            UniversalVideoPlayer uvp = FindAnyObjectByType<UniversalVideoPlayer>();
             if (uvp == null)
             {
                 GameObject vObj = new GameObject("UniversalVideoPlayer");
@@ -387,7 +388,7 @@ public class Room3MemoryPainting : MonoBehaviour
 
     private void ShowDiscoveredTimeBanner()
     {
-        Canvas canvas = FindFirstObjectByType<Canvas>();
+        Canvas canvas = FindAnyObjectByType<Canvas>();
         if (canvas == null) return;
 
         GameObject banner = new GameObject("MemoryTimeDiscoveredBanner", typeof(RectTransform));

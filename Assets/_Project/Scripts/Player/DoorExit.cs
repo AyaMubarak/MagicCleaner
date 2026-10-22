@@ -195,7 +195,7 @@ public class DoorExit : MonoBehaviour
         RenderSettings.ambientLight = new Color(1f, 0.98f, 0.94f); // نور ذهبي نهاري دافئ ومشرق
 
         // 2. إضاءة كافة الأضواء في الغرفة إلى أقصى درجات الإشراق
-        Light[] lights = FindObjectsByType<Light>(FindObjectsSortMode.None);
+        Light[] lights = FindObjectsByType<Light>();
         foreach (Light l in lights)
         {
             if (l.type == LightType.Directional)
@@ -220,7 +220,7 @@ public class DoorExit : MonoBehaviour
     private System.Collections.IEnumerator LaunchFireworksCelebration()
     {
         // إطلاق دفعات فتيش وألعاب نارية صوتية ومرئية
-        Canvas canvas = FindObjectOfType<Canvas>();
+        Canvas canvas = FindAnyObjectByType<Canvas>();
         if (canvas != null)
         {
             for (int f = 0; f < 6; f++)
@@ -327,11 +327,12 @@ public class DoorExit : MonoBehaviour
 
     private void ShowLevelCompleteBanner()
     {
-        Canvas canvas = FindObjectOfType<Canvas>();
+        Canvas canvas = FindAnyObjectByType<Canvas>();
         if (canvas == null) return;
 
         GameObject banner = new GameObject("LevelCompleteBanner", typeof(RectTransform));
         banner.transform.SetParent(canvas.transform, false);
+        Destroy(banner, 5f);
 
         RectTransform rt = banner.GetComponent<RectTransform>();
         rt.anchorMin = new Vector2(0.5f, 0.5f);

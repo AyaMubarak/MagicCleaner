@@ -128,12 +128,17 @@ public class MagicalFairyCompanion : MonoBehaviour
             if (cam == null) return startPos;
 
             Vector3 sp = cam.WorldToScreenPoint(worldPos);
-            // إذا كان الهدف في زاوية الكاميرا أو خلفها، يظهر في جانب الشاشة لتوجيه اللاعب
+            // اقلب اتجاه الإسقاط إذا كان الهدف خلف الكاميرا حتى لا يظهر الهنت
+            // في نقطة عشوائية بسبب إحداثيات الشاشة السالبة.
             if (sp.z < 0)
             {
-                sp.x = (sp.x < Screen.width * 0.5f) ? 50f : Screen.width - 50f;
-                sp.y = Screen.height * 0.5f;
+                sp.x = Screen.width - sp.x;
+                sp.y = Screen.height - sp.y;
             }
+
+            const float edgePadding = 70f;
+            sp.x = Mathf.Clamp(sp.x, edgePadding, Screen.width - edgePadding);
+            sp.y = Mathf.Clamp(sp.y, edgePadding, Screen.height - edgePadding);
 
             Vector2 localPoint;
             RectTransform parentRect = fairyRect.parent as RectTransform;
@@ -193,7 +198,6 @@ public class MagicalFairyCompanion : MonoBehaviour
             yield return null;
         }
 
-        // 3. العودة الناعمة لموقعها الأصلي في الزاوية العلوية بجانب زر الهنت
         elapsed = 0f;
         Vector2 returnStart = fairyRect.anchoredPosition;
         while (elapsed < duration)
@@ -201,10 +205,8 @@ public class MagicalFairyCompanion : MonoBehaviour
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
             float smoothT = Mathf.SmoothStep(0f, 1f, t);
-
             fairyRect.anchoredPosition = Vector2.Lerp(returnStart, idleRestPosition, smoothT);
             fairyRect.localRotation = Quaternion.Euler(0, 0, Mathf.Sin(t * Mathf.PI * 3f) * 10f);
-
             yield return null;
         }
 
