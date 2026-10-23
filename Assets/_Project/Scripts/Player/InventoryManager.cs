@@ -50,6 +50,7 @@ public class InventoryManager : MonoBehaviour
         if (notePreviewPanel != null) notePreviewPanel.SetActive(false);
 
         RepositionBagButton();
+        BindInventoryToggleButton();
 
         // Ø¯Ø§Ø¦Ù…Ø§Ù‹ Ø§Ø³ØªØ±Ø¬Ø§Ø¹ ÙˆØªØ£ÙƒÙŠØ¯ Ù…Ø­ØªÙˆÙŠØ§Øª Ø§Ù„Ø­Ù‚ÙŠØ¨Ø© Ù…Ù† Ø§Ù„Ù‚Ø±Øµ ÙˆÙ…Ù† Ø§Ù„Ù…Ù‡Ø§Ù… Ø§Ù„Ù…Ù†Ø¬Ø²Ø© Ø­ØªÙ‰ Ù„Ø§ ØªØ¶ÙŠØ¹ Ø§Ù„Ø£Ø¯ÙˆØ§Øª Ø£Ø¨Ø¯Ø§Ù‹
         LoadInventoryFromDisk();
@@ -93,6 +94,18 @@ public class InventoryManager : MonoBehaviour
         }
 
         ForceRefreshUI();
+    }
+
+    private void BindInventoryToggleButton()
+    {
+        GameObject bagObject = GameObject.Find("Inventory_Toggle_Button") ?? GameObject.Find("BagButton");
+        if (bagObject == null) return;
+
+        Button bagButton = bagObject.GetComponent<Button>();
+        if (bagButton == null) return;
+
+        bagButton.onClick.RemoveListener(ToggleInventory);
+        bagButton.onClick.AddListener(ToggleInventory);
     }
 
     public static Sprite GetBookSprite()
@@ -217,6 +230,47 @@ public class InventoryManager : MonoBehaviour
         }
 
         return CreateProceduralNoteSprite();
+    }
+
+    public static Sprite GetClockTimeSprite()
+    {
+        const int size = 256;
+        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        Color[] pixels = new Color[size * size];
+        for (int i = 0; i < pixels.Length; i++) pixels[i] = new Color(0.06f, 0.08f, 0.13f, 1f);
+
+        Vector2 center = new Vector2(128f, 128f);
+        for (int y = 0; y < size; y++)
+        for (int x = 0; x < size; x++)
+        {
+            float distance = Vector2.Distance(new Vector2(x, y), center);
+            if (distance <= 104f) pixels[y * size + x] = new Color(0.78f, 0.62f, 0.24f, 1f);
+            if (distance <= 88f) pixels[y * size + x] = new Color(0.94f, 0.87f, 0.65f, 1f);
+        }
+
+        DrawClockHand(pixels, size, center, 8f * 30f + 15f * 0.5f, 58f, 7);
+        DrawClockHand(pixels, size, center, 15f * 6f, 78f, 5);
+        texture.SetPixels(pixels);
+        texture.Apply();
+        return Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+    }
+
+    private static void DrawClockHand(Color[] pixels, int size, Vector2 center, float degrees, float length, int width)
+    {
+        float radians = (degrees - 90f) * Mathf.Deg2Rad;
+        Vector2 direction = new Vector2(Mathf.Cos(radians), Mathf.Sin(radians));
+        for (int step = 0; step <= (int)length; step++)
+        {
+            Vector2 point = center + direction * step;
+            for (int y = -width; y <= width; y++)
+            for (int x = -width; x <= width; x++)
+            {
+                int px = Mathf.RoundToInt(point.x + x);
+                int py = Mathf.RoundToInt(point.y + y);
+                if (px >= 0 && px < size && py >= 0 && py < size)
+                    pixels[py * size + px] = new Color(0.08f, 0.08f, 0.10f, 1f);
+            }
+        }
     }
 
     public static Sprite GetPotionSprite()
@@ -985,7 +1039,7 @@ public class InventoryManager : MonoBehaviour
         iRt.sizeDelta = new Vector2(230, 230);
 
         Image pImg = imgObj.AddComponent<Image>();
-        pImg.sprite = GetMemoryPaintingSprite();
+        pImg.sprite = GetClockTimeSprite();
         pImg.preserveAspect = true;
 
         Outline pOutline = imgObj.AddComponent<Outline>();
@@ -1018,10 +1072,8 @@ public class InventoryManager : MonoBehaviour
         tbtRt.offsetMax = new Vector2(-10, -8);
 
         TextMeshProUGUI tbTmp = tbTextObj.AddComponent<TextMeshProUGUI>();
-        tbTmp.text = "<b><color=#FFD166>★ REVEALED SECRET TIME ★</color></b>\n" +
-                     "<size=32><color=#38BDF8><b>08:15</b></color></size>\n" +
-                     "<size=14><color=#CBD5E1>Align the Grandfather Clock hands to 8:15 to unlock the magic cupboard!</color></size>";
-        tbTmp.fontSize = 17;
+        tbTmp.text = "<size=42><color=#38BDF8><b>8:15</b></color></size>";
+        tbTmp.fontSize = 24;
         tbTmp.alignment = TextAlignmentOptions.Center;
         tbTmp.color = Color.white;
 
@@ -1063,6 +1115,7 @@ public class InventoryManager : MonoBehaviour
         rTmp.fontSize = 15;
         rTmp.alignment = TextAlignmentOptions.Center;
         rTmp.color = new Color(1f, 0.92f, 0.70f, 1f);
+        replayBtnObj.SetActive(false);
 
         // Close Button
         GameObject closeObj = new GameObject("CloseBtn", typeof(RectTransform));

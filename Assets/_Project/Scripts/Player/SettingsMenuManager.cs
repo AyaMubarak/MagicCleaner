@@ -66,6 +66,7 @@ public class SettingsMenuManager : MonoBehaviour
         if (notificationSwitch != null) PlayerPrefs.SetInt("NotificationsEnabled", notificationSwitch.value >= 0.5f ? 1 : 0);
 
         PlayerPrefs.Save();
+        ProceduralAudioGenerator.RefreshAudioSettings();
     }
 
     /// <summary>

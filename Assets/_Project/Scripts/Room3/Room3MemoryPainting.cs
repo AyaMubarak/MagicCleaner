@@ -33,12 +33,20 @@ public class Room3MemoryPainting : MonoBehaviour
     private Camera mainCam;
     private bool isInspected = false;
     public bool IsInspected => isInspected;
+    public Vector3 PaintingTargetPosition => targetCollider != null ? targetCollider.bounds.center : transform.position;
     private bool isVideoPlaying = false;
     private readonly List<Collider> registeredPaintingColliders = new List<Collider>();
+    private readonly List<Renderer> paintingRenderers = new List<Renderer>();
 
-    // Tap tracking to distinguish clean clicks from dragging camera/joystick
+    [Header("Swipe Interaction")]
+    public float minimumSwipeDistance = 45f;
+    public int swipesRequiredToClean = 1;
+
+    // Tap/swipe tracking to distinguish painting interaction from camera movement
     private Vector2 touchDownPos;
     private float touchDownTime;
+    private bool swipeStartedOnPainting;
+    private int completedSwipes;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void AutoInitInRoom3()
@@ -74,6 +82,7 @@ public class Room3MemoryPainting : MonoBehaviour
         if (PlayerPrefs.GetInt("Room3_Task_painting", 0) == 1)
         {
             isInspected = true;
+            RevealPainting();
         }
     }
 
@@ -84,16 +93,47 @@ public class Room3MemoryPainting : MonoBehaviour
     public void SetupPaintingCollidersAndTriggers()
     {
         registeredPaintingColliders.Clear();
+        paintingRenderers.Clear();
+
+        Renderer preferredPainting = null;
+        Renderer[] sceneRenderers = FindObjectsByType<Renderer>();
+        foreach (Renderer candidate in sceneRenderers)
+        {
+            if (candidate == null) continue;
+            Transform parent = candidate.transform;
+            while (parent != null)
+            {
+                string candidateName = parent.name.ToLowerInvariant();
+                if (candidateName.Contains("secret art") || candidateName.Contains("secretart"))
+                {
+                    preferredPainting = candidate;
+                    break;
+                }
+                parent = parent.parent;
+            }
+            if (preferredPainting != null) break;
+        }
+
+        if (preferredPainting != null)
+        {
+            Collider preferredCollider = preferredPainting.GetComponent<Collider>();
+            if (preferredCollider != null)
+            {
+                targetCollider = preferredCollider;
+            }
+        }
 
         if (targetCollider != null && !registeredPaintingColliders.Contains(targetCollider))
         {
             registeredPaintingColliders.Add(targetCollider);
         }
 
-        Renderer[] allRenderers = FindObjectsByType<Renderer>();
+        Renderer[] allRenderers = sceneRenderers;
         foreach (Renderer rend in allRenderers)
         {
             if (rend == null) continue;
+
+            if (preferredPainting != null && rend != preferredPainting) continue;
 
             string objName = rend.gameObject.name.ToLower();
 
@@ -118,7 +158,8 @@ public class Room3MemoryPainting : MonoBehaviour
                     isPainting = false;
                     break;
                 }
-                if (n.Contains("sm_tablo") || n.Contains("painting0") || n.Contains("memorypainting"))
+                if (n.Contains("sm_tablo") || n.Contains("painting0") || n.Contains("memorypainting") ||
+                    n.Contains("secret art") || n.Contains("secretart"))
                 {
                     isPainting = true;
                     break;
@@ -133,7 +174,7 @@ public class Room3MemoryPainting : MonoBehaviour
                 {
                     if (mat == null) continue;
                     string mName = mat.name.ToLower();
-                    if (mName.Contains("m_tablo") || mName.Contains("tablo_p1"))
+                    if (mName.Contains("m_tablo") || mName.Contains("tablo_p1") || mName.Contains("secret art") || mName.Contains("secretart"))
                     {
                         isPainting = true;
                         break;
@@ -143,6 +184,11 @@ public class Room3MemoryPainting : MonoBehaviour
 
             if (isPainting)
             {
+                if (!paintingRenderers.Contains(rend))
+                {
+                    paintingRenderers.Add(rend);
+                }
+
                 Collider col = rend.GetComponent<Collider>();
                 if (col == null)
                 {
@@ -189,16 +235,21 @@ public class Room3MemoryPainting : MonoBehaviour
         {
             touchDownPos = Input.mousePosition;
             touchDownTime = Time.time;
+            swipeStartedOnPainting = IsPaintingAtScreenPosition(touchDownPos);
         }
         else if (Input.GetMouseButtonUp(0))
         {
-            // Only trigger on short, stationary clicks (not camera dragging)
             float duration = Time.time - touchDownTime;
             float distance = Vector2.Distance(touchDownPos, (Vector2)Input.mousePosition);
-            if (duration < 0.4f && distance < 20f)
+            if (swipeStartedOnPainting && distance >= minimumSwipeDistance)
+            {
+                TrySwipePainting(Input.mousePosition);
+            }
+            else if (swipeStartedOnPainting && duration < 0.5f && distance < 20f && completedSwipes >= swipesRequiredToClean)
             {
                 TryClickPainting(Input.mousePosition);
             }
+            swipeStartedOnPainting = false;
         }
 
         // 2. Mobile touch tap detection
@@ -209,16 +260,49 @@ public class Room3MemoryPainting : MonoBehaviour
             {
                 touchDownPos = t.position;
                 touchDownTime = Time.time;
+                swipeStartedOnPainting = IsPaintingAtScreenPosition(t.position);
             }
             else if (t.phase == TouchPhase.Ended)
             {
                 float duration = Time.time - touchDownTime;
                 float distance = Vector2.Distance(touchDownPos, t.position);
-                if (duration < 0.4f && distance < 25f)
+                if (swipeStartedOnPainting && distance >= minimumSwipeDistance)
+                {
+                    TrySwipePainting(t.position);
+                }
+                else if (swipeStartedOnPainting && distance < 25f && completedSwipes >= swipesRequiredToClean)
                 {
                     TryClickPainting(t.position);
                 }
+                swipeStartedOnPainting = false;
             }
+        }
+    }
+
+    private bool IsPaintingAtScreenPosition(Vector2 screenPos)
+    {
+        if (IsPointerOverInteractiveUI(screenPos)) return false;
+        if (mainCam == null) mainCam = Camera.main;
+        if (mainCam == null) return false;
+
+        Ray ray = mainCam.ScreenPointToRay(screenPos);
+        if (!Physics.Raycast(ray, out RaycastHit hit, 15f)) return false;
+        return registeredPaintingColliders.Contains(hit.collider) ||
+               hit.collider == targetCollider ||
+               hit.collider.GetComponentInParent<PaintingClickTrigger>() != null;
+    }
+
+    private void TrySwipePainting(Vector2 screenPos)
+    {
+        if (!IsPaintingAtScreenPosition(touchDownPos)) return;
+
+        completedSwipes++;
+        Debug.Log($"<color=yellow>[MemoryPainting]:</color> Dust swipe {completedSwipes}/{swipesRequiredToClean}");
+
+        if (completedSwipes >= swipesRequiredToClean)
+        {
+            Debug.Log("<color=green>[MemoryPainting]:</color> Dust cleared; revealing the secret art.");
+            InspectPainting();
         }
     }
 
@@ -253,7 +337,8 @@ public class Room3MemoryPainting : MonoBehaviour
                 else
                 {
                     string hName = hit.collider.name.ToLower();
-                    if ((hName.Contains("sm_tablo") || hName.Contains("painting")) && !hName.Contains("duvar") && !hName.Contains("cercevesi"))
+                    if ((hName.Contains("sm_tablo") || hName.Contains("painting") || hName.Contains("secret art") || hName.Contains("secretart")) &&
+                        !hName.Contains("duvar") && !hName.Contains("cercevesi"))
                     {
                         isHitPainting = true;
                     }
@@ -311,7 +396,7 @@ public class Room3MemoryPainting : MonoBehaviour
     /// </summary>
     public void InspectPainting()
     {
-        if (isVideoPlaying) return;
+        if (isVideoPlaying || isInspected) return;
 
         // Double check distance from player position to painting
         if (mainCam == null) mainCam = Camera.main;
@@ -361,6 +446,8 @@ public class Room3MemoryPainting : MonoBehaviour
         isVideoPlaying = false;
         isInspected = true;
 
+        RevealPainting();
+
         Debug.Log("<color=green>[MemoryPainting]:</color> Video completed, revealed time: " + revealedTimeString);
 
         ProceduralAudioGenerator.PlaySound("level_complete", 0.75f);
@@ -369,7 +456,7 @@ public class Room3MemoryPainting : MonoBehaviour
         if (InventoryManager.Instance != null)
         {
             Sprite paintingIcon = InventoryManager.GetMemoryPaintingSprite();
-            bool added = InventoryManager.Instance.AddItem("MemoryPainting", paintingIcon, true);
+            bool added = InventoryManager.Instance.AddItem("MemoryPainting", paintingIcon, false);
             if (added)
             {
                 InventoryManager.Instance.ShowInventoryTemporarily();
@@ -382,8 +469,23 @@ public class Room3MemoryPainting : MonoBehaviour
         PlayerPrefs.SetInt("HasItem_MemoryPainting", 1);
         PlayerPrefs.Save();
 
-        // Show English banner on screen
-        ShowDiscoveredTimeBanner();
+    }
+
+    private void RevealPainting()
+    {
+        MaterialPropertyBlock clearDustBlock = new MaterialPropertyBlock();
+        foreach (Renderer paintingRenderer in paintingRenderers)
+        {
+            if (paintingRenderer != null)
+            {
+                paintingRenderer.enabled = true;
+                paintingRenderer.GetPropertyBlock(clearDustBlock);
+                clearDustBlock.SetColor("_Color", Color.white);
+                paintingRenderer.SetPropertyBlock(clearDustBlock);
+            }
+        }
+
+        Debug.Log("<color=green>[MemoryPainting]:</color> Secret art revealed after video.");
     }
 
     private void ShowDiscoveredTimeBanner()
@@ -434,13 +536,6 @@ public class PaintingClickTrigger : MonoBehaviour
 
     private void OnMouseDown()
     {
-        if (parentPainting != null)
-        {
-            parentPainting.InspectPainting();
-        }
-        else if (Room3MemoryPainting.Instance != null)
-        {
-            Room3MemoryPainting.Instance.InspectPainting();
-        }
+        // The parent manager handles the swipe gesture and dust progress.
     }
 }

@@ -349,7 +349,7 @@ public class LevelProgressGuide : MonoBehaviour
         if (id.Contains("painting") || id.Contains("memory")) return "افحص لوحة الذكريات المعلقة لكشف التوقيت السري (8:15)";
         if (id.Contains("clock_hand") || id.Contains("hand")) return "ابحث عن عقرب الساعة وركبه على الساعة الجدارية";
         if (id.Contains("clock") || id.Contains("align")) return "اضبط عقارب الساعة الجدارية على التوقيت 8:15 لفتح الخزانة";
-        if (id.Contains("cupboard") || id.Contains("cabinet")) return "التقط المفتاح الذهبي من الخزانة السحرية المفتوحة";
+        if (id.Contains("cupboard") || id.Contains("cabinet") || id.Contains("secret_box")) return "افتح الصندوق السري وخذ عقرب الساعة";
 
         return "اتبع إشارات الجنية لإكمال هذه الخطوة";
     }
@@ -490,6 +490,45 @@ public class LevelProgressGuide : MonoBehaviour
             if (obj != null && obj.activeInHierarchy)
             {
                 targetPos = obj.transform.position + Vector3.up * 1.5f;
+                foundTarget = true;
+            }
+        }
+        else if (id.Contains("painting") || id.Contains("memory") || id.Contains("art"))
+        {
+            Room3MemoryPainting painting = Object.FindAnyObjectByType<Room3MemoryPainting>();
+            if (painting != null)
+            {
+                targetPos = painting.PaintingTargetPosition + Vector3.up * 0.1f;
+                foundTarget = true;
+            }
+            else
+            {
+                GameObject obj = GameObject.Find("Secret Art") ?? GameObject.Find("SecretArt") ??
+                                  GameObject.Find("MemoryPainting") ?? GameObject.Find("Painting");
+                if (obj != null)
+                {
+                    targetPos = obj.transform.position + Vector3.up * 0.3f;
+                    foundTarget = true;
+                }
+            }
+        }
+        else if (id.Contains("cupboard") || id.Contains("secret_box"))
+        {
+            Room3ClockHandPickup clockPickup = Object.FindAnyObjectByType<Room3ClockHandPickup>();
+            if (clockPickup != null)
+            {
+                targetPos = (clockPickup.IsCabinetOpened && !clockPickup.IsHandCollected
+                    ? clockPickup.HourHandTargetPosition
+                    : clockPickup.CabinetTargetPosition) + Vector3.down * 0.2f;
+                foundTarget = true;
+            }
+        }
+        else if (id.Contains("clock_hand"))
+        {
+            GameObject obj = GameObject.Find("GrandfatherClock") ?? GameObject.Find("Clock") ?? GameObject.Find("ClockPuzzle");
+            if (obj != null)
+            {
+                targetPos = obj.transform.position + Vector3.up * 0.5f;
                 foundTarget = true;
             }
         }
@@ -639,6 +678,12 @@ public class LevelProgressGuide : MonoBehaviour
             tasks.Add(new TaskInfo { id = "water", title = "Revive Plant", hint = "Select the acid potion from your bag and revive the magic plant on the table." });
             tasks.Add(new TaskInfo { id = "key", title = "Find Exit Key", hint = "Take the roof exit key revealed by the revived plant." });
             tasks.Add(new TaskInfo { id = "roof", title = "Unlock Roof", hint = "Climb the wooden stairs and use the key on the trapdoor to escape." });
+        }
+        else if (sceneName == "Room3")
+        {
+            tasks.Add(new TaskInfo { id = "painting", title = "Inspect Secret Art", hint = "Inspect the secret art to reveal the hidden time clue (8:15)." });
+            tasks.Add(new TaskInfo { id = "cupboard", title = "Open the Secret Box", hint = "Open the secret box and take the hour hand for the clock." });
+            tasks.Add(new TaskInfo { id = "clock_hand", title = "Place the Hour Hand", hint = "Install the hour hand on the grandfather clock." });
         }
         else
         {

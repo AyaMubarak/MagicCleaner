@@ -234,9 +234,31 @@ public static class ProceduralAudioGenerator
 
             bgmSource.clip = CreateRuntimeClip("room_music");
             bgmSource.loop = true;
-            bgmSource.volume = 0.28f;
             bgmSource.spatialBlend = 0f; // 2D
-            bgmSource.Play();
         }
+
+        ApplySavedAudioSettings();
+        if (PlayerPrefs.GetInt("IsMuted", 0) == 0 && !bgmSource.isPlaying)
+            bgmSource.Play();
+    }
+
+    public static void RefreshAudioSettings()
+    {
+        ApplySavedAudioSettings();
+    }
+
+    private static void ApplySavedAudioSettings()
+    {
+        if (bgmSource == null) return;
+
+        bool muted = PlayerPrefs.GetInt("IsMuted", 0) == 1;
+        float master = Mathf.Clamp01(PlayerPrefs.GetFloat("MasterVolume", 1f));
+        float music = Mathf.Clamp01(PlayerPrefs.GetFloat("MusicVolume", 1f));
+        bgmSource.volume = muted ? 0f : 0.28f * master * music;
+
+        if (muted && bgmSource.isPlaying)
+            bgmSource.Pause();
+        else if (!muted && !bgmSource.isPlaying)
+            bgmSource.Play();
     }
 }

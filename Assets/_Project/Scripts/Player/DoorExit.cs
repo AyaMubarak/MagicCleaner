@@ -17,8 +17,6 @@ public class DoorExit : MonoBehaviour
 
     private Camera mainCam;
 
-    private static AudioSource bgmSource = null;
-
     private void Awake()
     {
         mainCam = Camera.main;
@@ -26,22 +24,7 @@ public class DoorExit : MonoBehaviour
 
     private void Start()
     {
-        // تشغيل موسيقى خلفية هادئة للغرفة (Background Music)
-        if (bgmSource == null)
-        {
-            GameObject bgmObj = new GameObject("Room_BGM");
-            bgmSource = bgmObj.AddComponent<AudioSource>();
-            bgmSource.clip = ProceduralAudioGenerator.CreateRuntimeClip("room_music");
-            bgmSource.loop = true;
-            bgmSource.volume = 0.35f;
-            bgmSource.playOnAwake = false;
-            bgmSource.Play();
-            DontDestroyOnLoad(bgmObj);
-        }
-        else if (!bgmSource.isPlaying)
-        {
-            bgmSource.Play();
-        }
+        ProceduralAudioGenerator.EnsureBackgroundMusic();
     }
 
     private void OnMouseDown()
@@ -153,11 +136,6 @@ public class DoorExit : MonoBehaviour
         ProceduralAudioGenerator.PlaySound("level_complete", 1.0f);
 
         // إيقاف موسيقى الغرفة للانتقال للمرحلة التالية
-        if (bgmSource != null)
-        {
-            bgmSource.Stop();
-        }
-
         // إبلاغ دليل التقدم وحفظ فتح الباب فوراً
         LevelProgressGuide.ReportTask("door");
         PlayerPrefs.SetInt("Room1_DoorOpened", 1);
