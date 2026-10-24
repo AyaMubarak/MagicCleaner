@@ -1,5 +1,7 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System.Collections;
+using System.Collections.Generic;
 
 public class DoorExit : MonoBehaviour
 {
@@ -25,6 +27,17 @@ public class DoorExit : MonoBehaviour
     private void Start()
     {
         ProceduralAudioGenerator.EnsureBackgroundMusic();
+        EnsureDoorCollider();
+    }
+
+    private void EnsureDoorCollider()
+    {
+        BoxCollider bc = GetComponent<BoxCollider>();
+        if (bc == null)
+        {
+            bc = gameObject.AddComponent<BoxCollider>();
+        }
+        bc.enabled = true;
     }
 
     private void OnMouseDown()
@@ -46,30 +59,49 @@ public class DoorExit : MonoBehaviour
 
     private void CheckDoorClick(Vector2 screenPos)
     {
-        if (UnityEngine.EventSystems.EventSystem.current != null && 
-            UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
+        if (UnityEngine.EventSystems.EventSystem.current != null)
         {
-            return;
+            var eventData = new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current) { position = screenPos };
+            var results = new List<UnityEngine.EventSystems.RaycastResult>();
+            UnityEngine.EventSystems.EventSystem.current.RaycastAll(eventData, results);
+            foreach (var r in results)
+            {
+                if (r.gameObject != null && (r.gameObject.GetComponentInParent<UnityEngine.UI.Button>() != null ||
+                    r.gameObject.GetComponentInParent<VirtualJoystick>() != null))
+                {
+                    return;
+                }
+            }
         }
 
         if (mainCam == null) mainCam = Camera.main;
         if (mainCam == null) return;
 
         Ray ray = mainCam.ScreenPointToRay(screenPos);
-        if (Physics.Raycast(ray, out RaycastHit hit, 100f))
+        RaycastHit[] hits = Physics.RaycastAll(ray, 100f);
+        foreach (var hit in hits)
         {
             if (hit.transform == transform || hit.transform.IsChildOf(transform) || hit.transform.name.ToLower().Contains("door"))
             {
                 TryOpenDoor();
+                break;
             }
         }
     }
 
     private void TryOpenDoor()
     {
-        // 1. التحقق من وجود المفتاح في حوزة اللاعب (عبر KeyInteraction أو الحقيبة)
+        string sceneName = SceneManager.GetActiveScene().name;
+
+        // 1. التحقق من وجود المفتاح في حوزة اللاعب (يدعم GoldenKey للغرفة 3 و ChestKey للغرفة 1)
         bool hasKeyInInventory = KeyInteraction.HasKey || 
-            (InventoryManager.Instance != null && (InventoryManager.Instance.HasItem(requiredItemID) || InventoryManager.Instance.HasItem("key")));
+            (InventoryManager.Instance != null && (
+                InventoryManager.Instance.HasItem(requiredItemID) ||
+                InventoryManager.Instance.HasItem("GoldenKey") ||
+                InventoryManager.Instance.HasItem("Room3Key") ||
+                InventoryManager.Instance.HasItem("ChestKey") ||
+                InventoryManager.Instance.HasItem("key"))) ||
+            PlayerPrefs.GetInt($"{sceneName}_Task_key", 0) == 1;
 
         // إذا لم يلتقط اللاعب المفتاح نهائياً:
         if (!hasKeyInInventory)
@@ -93,35 +125,22 @@ public class DoorExit : MonoBehaviour
             string selected = InventoryManager.Instance.SelectedItem;
             if (!string.IsNullOrEmpty(selected) && 
                 (selected.Equals(requiredItemID, System.StringComparison.OrdinalIgnoreCase) || 
+                 selected.Equals("GoldenKey", System.StringComparison.OrdinalIgnoreCase) ||
+                 selected.Equals("Room3Key", System.StringComparison.OrdinalIgnoreCase) ||
                  selected.IndexOf("key", System.StringComparison.OrdinalIgnoreCase) >= 0))
             {
                 isKeySelected = true;
             }
         }
 
-        // إذا كان المفتاح معه لكنه لم يكبس عليه في الحقيبة أولاً:
-        if (!isKeySelected)
+        // إذا كان المفتاح معه بالحقيبة، نعتبره مفعلاً حتى يفتح الباب بسلاسة ومباشرة!
+        if (!isKeySelected && hasKeyInInventory)
         {
-            Debug.Log("<color=yellow>[Door]:</color> افتح الحقيبة واكبس على المفتاح لتحديده، ثم اكبس على الباب!");
-            if (lockedSound != null)
-            {
-                AudioSource.PlayClipAtPoint(lockedSound, transform.position);
-            }
-            else
-            {
-                ProceduralAudioGenerator.PlaySound("door_locked", 0.8f, transform.position);
-            }
-
-            // إظهار الحقيبة للاعب حتى يكبس على المفتاح
-            if (InventoryManager.Instance != null)
-            {
-                InventoryManager.Instance.ShowInventoryTemporarily();
-            }
-            return;
+            isKeySelected = true;
         }
 
-        // 3. تم النقر على المفتاح وتحديده ثم النقر على الباب -> يفتح الباب بنجاح!
-        Debug.Log("<color=green>[Door]:</color> تم فتح الباب بنجاح باستخدام المفتاح المحدد!");
+        // 3. تم النقر على الباب والمفتاح موجود -> يفتح الباب بنجاح!
+        Debug.Log("<color=green>[Door]:</color> تم فتح الباب بنجاح باستخدام المفتاح!");
 
         if (doorOpenSound != null)
         {
@@ -132,15 +151,26 @@ public class DoorExit : MonoBehaviour
             ProceduralAudioGenerator.PlaySound("door_open", 0.95f, transform.position);
         }
 
-        // تشغيل لحن احتفالي محمس وفخم لإنهاء المستوى الأول (Victory Fanfare)
+        // تشغيل لحن احتفالي محمس وفخم لإنهاء المستوى (Victory Fanfare)
         ProceduralAudioGenerator.PlaySound("level_complete", 1.0f);
 
         // إيقاف موسيقى الغرفة للانتقال للمرحلة التالية
         // إبلاغ دليل التقدم وحفظ فتح الباب فوراً
         LevelProgressGuide.ReportTask("door");
-        PlayerPrefs.SetInt("Room1_DoorOpened", 1);
-        PlayerPrefs.SetInt("Room1_Done", 1);
-        PlayerPrefs.SetInt("Level1_Done", 1);
+
+        if (sceneName == "Room3")
+        {
+            PlayerPrefs.SetInt("Room3_DoorOpened", 1);
+            PlayerPrefs.SetInt("Room3_Done", 1);
+            PlayerPrefs.SetInt("Level3_Done", 1);
+        }
+        else
+        {
+            PlayerPrefs.SetInt("Room1_DoorOpened", 1);
+            PlayerPrefs.SetInt("Room1_Done", 1);
+            PlayerPrefs.SetInt("Level1_Done", 1);
+        }
+
         PlayerPrefs.SetInt("OpenLevelsDirectly", 1); // حتى تفتح شاشة الـ Levels فوراً
         PlayerPrefs.Save();
 
@@ -150,13 +180,15 @@ public class DoorExit : MonoBehaviour
         // إطلاق فتيش وحركات ألعاب نارية احتفالية ومبهجة
         StartCoroutine(LaunchFireworksCelebration());
 
-        // إظهار شعار احتفالي محمس على الشاشة (LEVEL 1 COMPLETED!)
+        // إظهار شعار احتفالي محمس على الشاشة
         ShowLevelCompleteBanner();
 
         // إزالة المفتاح من الحقيبة بعد استخدامه
         if (InventoryManager.Instance != null)
         {
             InventoryManager.Instance.RemoveItem(requiredItemID);
+            InventoryManager.Instance.RemoveItem("GoldenKey");
+            InventoryManager.Instance.RemoveItem("Room3Key");
             InventoryManager.Instance.RemoveItem("key");
             InventoryManager.Instance.ClearSelection();
         }
@@ -173,7 +205,7 @@ public class DoorExit : MonoBehaviour
         RenderSettings.ambientLight = new Color(1f, 0.98f, 0.94f); // نور ذهبي نهاري دافئ ومشرق
 
         // 2. إضاءة كافة الأضواء في الغرفة إلى أقصى درجات الإشراق
-        Light[] lights = FindObjectsByType<Light>();
+        Light[] lights = FindObjectsByType<Light>(FindObjectsSortMode.None);
         foreach (Light l in lights)
         {
             if (l.type == LightType.Directional)
@@ -308,6 +340,9 @@ public class DoorExit : MonoBehaviour
         Canvas canvas = FindAnyObjectByType<Canvas>();
         if (canvas == null) return;
 
+        string currentScene = SceneManager.GetActiveScene().name;
+        string bannerTitle = (currentScene == "Room3") ? "★ LEVEL 3 COMPLETED! ★" : "★ LEVEL 1 COMPLETED! ★";
+
         GameObject banner = new GameObject("LevelCompleteBanner", typeof(RectTransform));
         banner.transform.SetParent(canvas.transform, false);
         Destroy(banner, 5f);
@@ -334,7 +369,7 @@ public class DoorExit : MonoBehaviour
         tRt.sizeDelta = Vector2.zero;
 
         TMPro.TextMeshProUGUI tmp = textObj.AddComponent<TMPro.TextMeshProUGUI>();
-        tmp.text = "★ LEVEL 1 COMPLETED! ★\n<size=24><color=#4ADE80>CONGRATULATIONS!</color></size>";
+        tmp.text = $"{bannerTitle}\n<size=24><color=#4ADE80>CONGRATULATIONS!</color></size>";
         tmp.fontSize = 32;
         tmp.fontStyle = TMPro.FontStyles.Bold;
         tmp.alignment = TMPro.TextAlignmentOptions.Center;

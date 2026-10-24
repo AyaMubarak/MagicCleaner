@@ -52,6 +52,18 @@ public class Room3ClockHandPickup : MonoBehaviour
         {
             if (IsSecretBoxHit(hit.transform) && !cabinetOpened)
             {
+                // شرط: يجب أولاً تنظيف لوحة الذكريات وحفظها في الحقيبة
+                bool isPaintingDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("painting"))
+                                      || PlayerPrefs.GetInt("Room3_Task_painting", 0) == 1
+                                      || (InventoryManager.Instance != null && InventoryManager.Instance.HasItem("MemoryPainting"));
+
+                if (!isPaintingDone)
+                {
+                    Debug.Log("<color=yellow>[الصندوق السري]:</color> مقفل بإحكام! افحص لوحة الذكريات ونظفها أولاً لمعرفة التوقيت.");
+                    ProceduralAudioGenerator.PlaySound("door_locked", 0.7f);
+                    return;
+                }
+
                 cabinetOpened = true;
                 Transform boxRoot = FindSecretBoxRoot(hit.transform);
                 if (boxRoot != null) boxRoot.gameObject.SetActive(false);
@@ -67,10 +79,14 @@ public class Room3ClockHandPickup : MonoBehaviour
                 if (handObject != null)
                     handObject.SetActive(false);
                 PlayerPrefs.SetInt("Room3_HourHandCollected", 1);
+                PlayerPrefs.SetInt("HasItem_ClockHand", 1);
                 PlayerPrefs.Save();
 
                 if (InventoryManager.Instance != null)
-                    InventoryManager.Instance.AddItem("HourHand", InventoryManager.GetClockTimeSprite(), false);
+                {
+                    InventoryManager.Instance.AddItem("ClockHand", InventoryManager.GetClockTimeSprite(), true);
+                    InventoryManager.Instance.ShowInventoryTemporarily();
+                }
 
                 LevelProgressGuide.ReportTask("cupboard");
                 ProceduralAudioGenerator.PlaySound("pickup", 0.85f);

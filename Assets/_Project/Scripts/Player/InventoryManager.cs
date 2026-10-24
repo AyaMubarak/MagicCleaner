@@ -237,40 +237,74 @@ public class InventoryManager : MonoBehaviour
         const int size = 256;
         Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
         Color[] pixels = new Color[size * size];
-        for (int i = 0; i < pixels.Length; i++) pixels[i] = new Color(0.06f, 0.08f, 0.13f, 1f);
+        for (int i = 0; i < pixels.Length; i++) pixels[i] = Color.clear;
 
-        Vector2 center = new Vector2(128f, 128f);
+        Vector2 center = new Vector2(128f, 52f); // Pivot mount hole near base
+
+        // 1. Base Mounting Ring (Golden gear collar)
+        Color goldDark = new Color(0.60f, 0.45f, 0.15f, 1f);
+        Color goldMid = new Color(0.85f, 0.68f, 0.25f, 1f);
+        Color goldLight = new Color(1.0f, 0.90f, 0.50f, 1f);
+
         for (int y = 0; y < size; y++)
-        for (int x = 0; x < size; x++)
         {
-            float distance = Vector2.Distance(new Vector2(x, y), center);
-            if (distance <= 104f) pixels[y * size + x] = new Color(0.78f, 0.62f, 0.24f, 1f);
-            if (distance <= 88f) pixels[y * size + x] = new Color(0.94f, 0.87f, 0.65f, 1f);
+            for (int x = 0; x < size; x++)
+            {
+                float dCenter = Vector2.Distance(new Vector2(x, y), center);
+                if (dCenter <= 28f && dCenter >= 10f)
+                {
+                    pixels[y * size + x] = (x > 128) ? goldLight : goldMid;
+                }
+                else if (dCenter < 10f)
+                {
+                    // Center mounting hole
+                    pixels[y * size + x] = new Color(0.12f, 0.10f, 0.08f, 0.9f);
+                }
+            }
         }
 
-        DrawClockHand(pixels, size, center, 8f * 30f + 15f * 0.5f, 58f, 7);
-        DrawClockHand(pixels, size, center, 15f * 6f, 78f, 5);
+        // 2. Ornate vintage antique pointer body (tapers up towards tip at y=230)
+        for (int y = 52; y <= 236; y++)
+        {
+            float progress = (y - 52f) / (236f - 52f);
+            float halfWidth;
+
+            if (progress < 0.25f)
+            {
+                halfWidth = Mathf.Lerp(16f, 9f, progress / 0.25f);
+            }
+            else if (progress >= 0.25f && progress < 0.55f)
+            {
+                // Decorative diamond / spade bulge
+                float tDiamond = (progress - 0.25f) / 0.30f;
+                halfWidth = 9f + Mathf.Sin(tDiamond * Mathf.PI) * 16f;
+            }
+            else
+            {
+                // Taper to sharp spear tip
+                halfWidth = Mathf.Lerp(9f, 1f, (progress - 0.55f) / 0.45f);
+            }
+
+            int minX = Mathf.RoundToInt(128f - halfWidth);
+            int maxX = Mathf.RoundToInt(128f + halfWidth);
+
+            for (int x = minX; x <= maxX; x++)
+            {
+                if (x >= 0 && x < size && y >= 0 && y < size)
+                {
+                    if (x == minX || x == maxX)
+                        pixels[y * size + x] = goldDark;
+                    else if (x >= 128)
+                        pixels[y * size + x] = goldLight;
+                    else
+                        pixels[y * size + x] = goldMid;
+                }
+            }
+        }
+
         texture.SetPixels(pixels);
         texture.Apply();
         return Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
-    }
-
-    private static void DrawClockHand(Color[] pixels, int size, Vector2 center, float degrees, float length, int width)
-    {
-        float radians = (degrees - 90f) * Mathf.Deg2Rad;
-        Vector2 direction = new Vector2(Mathf.Cos(radians), Mathf.Sin(radians));
-        for (int step = 0; step <= (int)length; step++)
-        {
-            Vector2 point = center + direction * step;
-            for (int y = -width; y <= width; y++)
-            for (int x = -width; x <= width; x++)
-            {
-                int px = Mathf.RoundToInt(point.x + x);
-                int py = Mathf.RoundToInt(point.y + y);
-                if (px >= 0 && px < size && py >= 0 && py < size)
-                    pixels[py * size + px] = new Color(0.08f, 0.08f, 0.10f, 1f);
-            }
-        }
     }
 
     public static Sprite GetPotionSprite()
@@ -344,6 +378,10 @@ public class InventoryManager : MonoBehaviour
         else if (lower.Contains("flint") || lower.Contains("lighter"))
         {
             return GetFlintSprite();
+        }
+        else if (lower.Contains("clockhand") || lower.Contains("hourhand") || lower.Contains("hand") || lower.Contains("clock"))
+        {
+            return GetClockTimeSprite();
         }
         else if (lower.Contains("painting") || lower.Contains("memory") || lower.Contains("tablo") || lower.Contains("time"))
         {
@@ -463,7 +501,7 @@ public class InventoryManager : MonoBehaviour
         }
         else if (sceneName == "Room3")
         {
-            // التحقق من لوحة الذكريات للغرفة 3 فقط
+            // التحقق من لوحة الذكريات للغرفة 3
             bool paintingDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("painting"))
                                 || PlayerPrefs.GetInt("Room3_Task_painting", 0) == 1
                                 || PlayerPrefs.GetInt("HasItem_MemoryPainting", 0) == 1;
@@ -471,6 +509,48 @@ public class InventoryManager : MonoBehaviour
             if (paintingDone && !HasItem("MemoryPainting"))
             {
                 inventoryItems.Add(new InventoryEntry { id = "MemoryPainting", icon = GetMemoryPaintingSprite() });
+            }
+
+            // التحقق من عقرب الساعة المحفوظ (إذا تم التقاطه ولم يتم تركيبه بالساعة بعد)
+            bool handCollected = PlayerPrefs.GetInt("Room3_HourHandCollected", 0) == 1
+                                 || PlayerPrefs.GetInt("HasItem_ClockHand", 0) == 1;
+
+            bool handInstalled = PlayerPrefs.GetInt("Room3_HandInstalled", 0) == 1
+                                 || PlayerPrefs.GetInt("Room3_ClockSolved", 0) == 1;
+
+            if (handCollected && !handInstalled && !HasItem("ClockHand") && !HasItem("HourHand"))
+            {
+                inventoryItems.Add(new InventoryEntry { id = "ClockHand", icon = GetClockTimeSprite() });
+            }
+
+            // التحقق من المفتاح الذهبي للغرفة 3 (إذا تم التقاطه ولم يُفتح الباب بعد)
+            bool keyCollected = PlayerPrefs.GetInt("Room3_Task_key", 0) == 1
+                                || PlayerPrefs.GetInt("HasItem_GoldenKey", 0) == 1
+                                || PlayerPrefs.GetInt("HasItem_Room3Key", 0) == 1;
+
+            bool doorOpened = PlayerPrefs.GetInt("Room3_Done", 0) == 1
+                              || PlayerPrefs.GetInt("Level3_Done", 0) == 1
+                              || PlayerPrefs.GetInt("Room3_Task_door", 0) == 1;
+
+            bool hasAnyKey = inventoryItems.Exists(x => x.id.IndexOf("key", System.StringComparison.OrdinalIgnoreCase) >= 0);
+
+            if (keyCollected && !doorOpened && !hasAnyKey)
+            {
+                inventoryItems.Add(new InventoryEntry { id = "GoldenKey", icon = GetKeySprite() });
+            }
+
+            // إزالة أي مفتاح مكرر إذا وُجد أكثر من مفتاح واحد في الحقيبة
+            int keyCount = 0;
+            for (int k = inventoryItems.Count - 1; k >= 0; k--)
+            {
+                if (inventoryItems[k].id.IndexOf("key", System.StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    keyCount++;
+                    if (keyCount > 1)
+                    {
+                        inventoryItems.RemoveAt(k);
+                    }
+                }
             }
         }
         // Room2 تحتفظ بأدواتها الخاصة (الجرعات والمكونات) عبر السلسلة الخاصة بها Room2_SavedInventory_ItemIDs
@@ -495,6 +575,7 @@ public class InventoryManager : MonoBehaviour
         PlayerPrefs.DeleteKey("HasItem_SecretCode");
         PlayerPrefs.DeleteKey("HasItem_ChestKey");
         PlayerPrefs.DeleteKey("HasItem_MemoryPainting");
+        PlayerPrefs.DeleteKey("HasItem_ClockHand");
         PlayerPrefs.Save();
         if (Instance != null)
         {
@@ -553,9 +634,19 @@ public class InventoryManager : MonoBehaviour
 
         if (HasItem(itemName)) return false;
 
+        // في حال كان العنصر مفتاحاً وكان اللاعب يمتلك مفتاحاً بالفعل في حقيبته، نمنع تكراره نهائياً
+        if (itemName.IndexOf("key", System.StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            if (inventoryItems.Exists(x => x.id.IndexOf("key", System.StringComparison.OrdinalIgnoreCase) >= 0))
+            {
+                Debug.LogWarning("[Inventory]: يوجد مفتاح بالفعل في الحقيبة، تم منع تكرار إضافة مفتاح ثانٍ: " + itemName);
+                return false;
+            }
+        }
+
         if (slotIcons != null && inventoryItems.Count >= slotIcons.Length)
         {
-            Debug.LogWarning("[Inventory]: Ø§Ù„Ø­Ù‚ÙŠØ¨Ø© Ù…Ù…ØªÙ„Ø¦Ø©!");
+            Debug.LogWarning("[Inventory]: الحقيبة ممتلئة!");
             return false;
         }
 
@@ -644,6 +735,9 @@ public class InventoryManager : MonoBehaviour
                 {
                     slotButtons[i].gameObject.SetActive(true);
                     slotButtons[i].interactable = true;
+                    int slotIdx = i;
+                    slotButtons[i].onClick.RemoveAllListeners();
+                    slotButtons[i].onClick.AddListener(() => OnSlotClicked(slotIdx));
                 }
             }
             else

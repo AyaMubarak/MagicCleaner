@@ -290,12 +290,7 @@ public class LevelsMenuManager : MonoBehaviour
                 buttonText.characterSpacing = 1.5f;
 
                 // وضعية وحجم النص ليملأ مساحة الزر بشكل متناسق وموزون
-                RectTransform txtRt = buttonText.rectTransform;
-                if (txtRt != null)
-                {
-                    txtRt.anchoredPosition = new Vector2(20f, -252f);
-                    txtRt.sizeDelta = new Vector2(250f, 44f);
-                }
+                // Keep original scene layout for buttonText
 
                 // إذا بدأ اللاعب ولم ينهِ -> CONTINUE (33%) بلون متناسق وواضح، وإلا -> START
                 if (hasStarted || progressPct > 0f)
@@ -307,8 +302,8 @@ public class LevelsMenuManager : MonoBehaviour
                 }
                 else
                 {
-                    buttonText.text = "START";
-                    buttonText.color = Color.white;
+                    buttonText.text = "Start";
+                    buttonText.color = startColor;
                     buttonText.fontSize = 22f;
                 }
             }
@@ -334,16 +329,11 @@ public class LevelsMenuManager : MonoBehaviour
                 buttonText.alignment = TextAlignmentOptions.Center;
                 buttonText.fontStyle = FontStyles.Bold;
                 buttonText.characterSpacing = 2.5f;
-                buttonText.text = "LOCKED";
+                buttonText.text = "Locked";
                 buttonText.color = lockedColor;
                 buttonText.fontSize = 22f;
 
-                RectTransform txtRt = buttonText.rectTransform;
-                if (txtRt != null)
-                {
-                    txtRt.anchoredPosition = new Vector2(20f, -252f);
-                    txtRt.sizeDelta = new Vector2(220f, 44f);
-                }
+                // Keep original scene layout for buttonText
             }
 
             AdjustButtonIcon(button, false);
@@ -363,16 +353,11 @@ public class LevelsMenuManager : MonoBehaviour
         Transform iconT = button.transform.Find("new icons");
         if (iconT != null)
         {
+            iconT.gameObject.SetActive(true);
             RectTransform iconRt = iconT.GetComponent<RectTransform>();
             Image iconImg = iconT.GetComponent<Image>();
 
-            if (iconRt != null)
-            {
-                // محاذاة الأيقونة في موقع بعيد بمسافة كافية وأنيقة عن كلمة START / CONTINUE
-                iconRt.anchoredPosition = new Vector2(-135f, -252f);
-                iconRt.sizeDelta = new Vector2(65f, 65f);
-                iconRt.localScale = Vector3.one;
-            }
+            // Keep original scene layout for iconRt
 
             if (iconImg != null)
             {
@@ -386,7 +371,7 @@ public class LevelsMenuManager : MonoBehaviour
 
                     if (cachedOpenLockSprite == null)
                     {
-                        cachedOpenLockSprite = Resources.Load<Sprite>("padlock") ?? 
+                        cachedOpenLockSprite = Resources.Load<Sprite>("padlock_open") ?? Resources.Load<Sprite>("padlock") ?? 
                                                Resources.Load<Sprite>("padlock_0");
                         if (cachedOpenLockSprite == null)
                         {
@@ -576,6 +561,18 @@ public class LevelsMenuManager : MonoBehaviour
         {
             PlayerPrefs.DeleteKey("Room3_Done");
             PlayerPrefs.DeleteKey("Level3_Done");
+            PlayerPrefs.DeleteKey("Room3_DoorOpened");
+            PlayerPrefs.DeleteKey("Room3_ClockSolved");
+            PlayerPrefs.DeleteKey("Room3_HandInstalled");
+            PlayerPrefs.DeleteKey("Room3_CabinetOpened");
+            PlayerPrefs.DeleteKey("Room3_HourHandCollected");
+            PlayerPrefs.DeleteKey("HasItem_ClockHand");
+            PlayerPrefs.DeleteKey("HasItem_Room3Key");
+            PlayerPrefs.DeleteKey("Room3_Task_painting");
+            PlayerPrefs.DeleteKey("Room3_Task_cupboard");
+            PlayerPrefs.DeleteKey("Room3_Task_clock_hand");
+            PlayerPrefs.DeleteKey("Room3_Task_key");
+            PlayerPrefs.DeleteKey("Room3_Task_door");
         }
 
         // مسح مفاتيح مشاهدة الفيديوهات حتى تعود للعمل مع اللعبة الجديدة

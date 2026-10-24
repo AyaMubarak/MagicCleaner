@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -89,12 +89,6 @@ public class MagicalFairyCompanion : MonoBehaviour
 
             fairyRect.anchoredPosition = idleRestPosition + new Vector2(0, bobY);
             fairyRect.localRotation = Quaternion.Euler(0, 0, wobbleZ);
-
-            if (glowOutline != null)
-            {
-                float pulse = 0.5f + Mathf.PingPong(Time.time * 2f, 0.5f);
-                glowOutline.effectColor = new Color(0.3f, 0.85f, 1f, pulse);
-            }
         }
     }
 

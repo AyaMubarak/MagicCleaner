@@ -523,38 +523,54 @@ public class LevelProgressGuide : MonoBehaviour
                 foundTarget = true;
             }
         }
-        else if (id.Contains("clock_hand"))
+        else if (id.Contains("clock_hand") || id.Contains("clock"))
         {
-            GameObject obj = GameObject.Find("GrandfatherClock") ?? GameObject.Find("Clock") ?? GameObject.Find("ClockPuzzle");
-            if (obj != null)
+            GrandfatherClockPuzzle clockPuz = Object.FindAnyObjectByType<GrandfatherClockPuzzle>();
+            if (clockPuz != null)
             {
-                targetPos = obj.transform.position + Vector3.up * 0.5f;
+                targetPos = clockPuz.transform.position + Vector3.up * 1.5f;
                 foundTarget = true;
+            }
+            else
+            {
+                GameObject obj = GameObject.Find("grandfather_clock") ?? GameObject.Find("GrandfatherClock") ?? GameObject.Find("Clock") ?? GameObject.Find("ClockPuzzle");
+                if (obj != null)
+                {
+                    targetPos = obj.transform.position + Vector3.up * 1.5f;
+                    foundTarget = true;
+                }
             }
         }
         else if (id.Contains("key"))
         {
-            GameObject obj = GameObject.Find("key") ?? GameObject.Find("ExitKey") ?? GameObject.Find("ChestKey");
-            if (obj != null && obj.activeInHierarchy) { targetPos = obj.transform.position; foundTarget = true; }
+            if (Room3KeyPickup.Instance != null)
+            {
+                targetPos = Room3KeyPickup.Instance.KeyTargetPosition;
+                foundTarget = true;
+            }
             else
             {
-                // إذا لم يظهر المفتاح بعد، توجيه اللاعب نحو النبتة
-                QuickPlantRevive plant = Object.FindAnyObjectByType<QuickPlantRevive>();
-                if (plant != null) { targetPos = plant.transform.position + Vector3.up * 0.35f; foundTarget = true; }
+                GameObject obj = GameObject.Find("Room3_GoldenKey") ?? GameObject.Find("key") ?? GameObject.Find("ExitKey") ?? GameObject.Find("ChestKey");
+                if (obj != null && obj.activeInHierarchy) { targetPos = obj.transform.position; foundTarget = true; }
+                else
+                {
+                    QuickPlantRevive plant = Object.FindAnyObjectByType<QuickPlantRevive>();
+                    if (plant != null) { targetPos = plant.transform.position + Vector3.up * 0.35f; foundTarget = true; }
+                }
             }
         }
         else if (id.Contains("door") || id.Contains("roof"))
         {
             GameObject stairsObject = GameObject.Find("Stairs");
-            if (stairsObject != null && stairsObject.activeInHierarchy)
+            if (stairsObject != null && stairsObject.activeInHierarchy && SceneManager.GetActiveScene().name == "Room2")
             {
                 targetPos = stairsObject.transform.position + Vector3.up * 1.0f;
                 foundTarget = true;
             }
             else
             {
-                GameObject obj = GameObject.Find("StairsTop") ?? GameObject.Find("StairsBottom") ?? GameObject.Find("Door") ?? GameObject.Find("ExitDoor") ?? GameObject.Find("Trapdoor");
-                if (obj != null) { targetPos = obj.transform.position; foundTarget = true; }
+                GameObject obj = GameObject.Find("Door (1)") ?? GameObject.Find("Door") ?? GameObject.Find("ExitDoor") ?? GameObject.Find("StairsTop") ?? GameObject.Find("Trapdoor");
+                if (obj != null) { targetPos = obj.transform.position + Vector3.up * 1.0f; foundTarget = true; }
             }
         }
 
@@ -684,6 +700,8 @@ public class LevelProgressGuide : MonoBehaviour
             tasks.Add(new TaskInfo { id = "painting", title = "Inspect Secret Art", hint = "Inspect the secret art to reveal the hidden time clue (8:15)." });
             tasks.Add(new TaskInfo { id = "cupboard", title = "Open the Secret Box", hint = "Open the secret box and take the hour hand for the clock." });
             tasks.Add(new TaskInfo { id = "clock_hand", title = "Place the Hour Hand", hint = "Install the hour hand on the grandfather clock." });
+            tasks.Add(new TaskInfo { id = "key", title = "Collect Golden Key", hint = "Take the golden key revealed by the grandfather clock." });
+            tasks.Add(new TaskInfo { id = "door", title = "Unlock Exit Door", hint = "Select the key from your bag and click the exit door to complete the room!" });
         }
         else
         {
