@@ -114,7 +114,7 @@ public class MainMenuNavigation : MonoBehaviour
             }
         }
 
-        UnityEngine.SceneManagement.AsyncOperation asyncLoad = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(sceneName);
+        UnityEngine.AsyncOperation asyncLoad = UnityEngine.SceneManagement.SceneManager.LoadSceneAsync(sceneName);
         while (!asyncLoad.isDone)
         {
             yield return null;

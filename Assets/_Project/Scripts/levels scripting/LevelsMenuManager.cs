@@ -631,6 +631,10 @@ public class LevelsMenuManager : MonoBehaviour
         {
             PlayerPrefs.DeleteKey("Room2_Done");
             PlayerPrefs.DeleteKey("Level2_Done");
+            PlayerPrefs.DeleteKey("Room2_DoorOpened");
+            PlayerPrefs.DeleteKey("Room2_Task_roof");
+            PlayerPrefs.DeleteKey("Room3_Unlocked");
+            PlayerPrefs.DeleteKey("Level3_Unlocked");
             PlayerPrefs.DeleteKey("HasItem_Herb");
             PlayerPrefs.DeleteKey("HasItem_WaterFlask");
             PlayerPrefs.DeleteKey("HasItem_AcidPotion");
