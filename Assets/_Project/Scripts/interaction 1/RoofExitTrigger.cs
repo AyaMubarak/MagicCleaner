@@ -31,13 +31,13 @@ public class RoofExitTrigger : MonoBehaviour
 
     private bool isTransitioning = false;
 
-    // استجابة للمس المباشر بالكولايدر (PC)
+    // استجابة للمس المباشر بالكولايدر (PC) عند النقر على السطح حصراً
     private void OnMouseDown()
     {
         TryExit();
     }
 
-    // استجابة للمس عند الاقتراب المادي باللاعب إذا كان الكائن Trigger
+    // استجابة للمس عند الاقتراب المادي باللاعب إذا صعد للأعلى
     private void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Player") || other.GetComponent<CharacterController>() != null)
@@ -50,12 +50,16 @@ public class RoofExitTrigger : MonoBehaviour
     {
         if (isTransitioning) return;
 
-        // فحص النقر أو اللمس لشاشات الهواتف
+        // فحص النقر أو اللمس لشاشات الهواتف والكمبيوتر
         if (Input.GetMouseButtonDown(0))
         {
-            // تجنب التفاعل إذا نقر اللاعب على عنصر واجهة UI
-            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
-                return;
+            // تجنب التفاعل فقط إذا نقر اللاعب على زر فعلي في الواجهة (مثل زر الحقيبة أو زر الرجوع)
+            if (EventSystem.current != null)
+            {
+                var curSelected = EventSystem.current.currentSelectedGameObject;
+                if (curSelected != null && curSelected.GetComponent<Button>() != null)
+                    return;
+            }
 
             Camera cam = Camera.main;
             if (cam == null) cam = FindAnyObjectByType<Camera>();
@@ -66,8 +70,22 @@ public class RoofExitTrigger : MonoBehaviour
 
             foreach (var hit in hits)
             {
-                if (hit.transform == transform || hit.transform.IsChildOf(transform) ||
-                    hit.transform.name.Contains("Ceiling") || hit.transform.name.Contains("TOP"))
+                if (hit.transform == null) continue;
+
+                string tName = hit.transform.name;
+                string pName = hit.transform.parent != null ? hit.transform.parent.name : "";
+
+                // التحقق من أن النقر على السطح حصراً (وليس السلم!)
+                bool isRoof = hit.transform == transform || hit.transform.IsChildOf(transform) ||
+                              tName.IndexOf("TOP", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                              pName.IndexOf("TOP", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                              tName.IndexOf("Ceiling", System.StringComparison.OrdinalIgnoreCase) >= 0;
+
+                // استبعاد السلم تماماً
+                bool isStairs = tName.IndexOf("Stairs", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                pName.IndexOf("Stairs", System.StringComparison.OrdinalIgnoreCase) >= 0;
+
+                if (isRoof && !isStairs)
                 {
                     TryExit();
                     break;
@@ -80,16 +98,18 @@ public class RoofExitTrigger : MonoBehaviour
     {
         if (isTransitioning) return;
 
-        if (InventoryManager.Instance == null)
-        {
-            Debug.LogError("[السطح]: لم يتم العثور على InventoryManager في المشهد!");
-            return;
-        }
+        // فحص وجود المفتاح في الحقيبة (سواء كان ExitKey أو أي مفتاح آخر أو تم التقاطه في المهمة)
+        bool hasKey = (PlayerPrefs.GetInt("Room2_Task_key", 0) == 1) ||
+                      (PlayerPrefs.GetInt("HasItem_ExitKey", 0) == 1);
 
-        // فحص وجود المفتاح في الحقيبة (سواء كان محدداً أو موجوداً ضمن الأغراض)
-        bool hasKey = InventoryManager.Instance.HasItem(requiredKey) ||
-                      (!string.IsNullOrEmpty(InventoryManager.Instance.SelectedItem) &&
-                       InventoryManager.Instance.SelectedItem.Trim().Equals(requiredKey.Trim(), System.StringComparison.OrdinalIgnoreCase));
+        if (!hasKey && InventoryManager.Instance != null)
+        {
+            hasKey = InventoryManager.Instance.HasItem(requiredKey) ||
+                     InventoryManager.Instance.HasItem("key") ||
+                     (!string.IsNullOrEmpty(InventoryManager.Instance.SelectedItem) &&
+                      (InventoryManager.Instance.SelectedItem.IndexOf("key", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                       InventoryManager.Instance.SelectedItem.Trim().Equals(requiredKey.Trim(), System.StringComparison.OrdinalIgnoreCase)));
+        }
 
         if (hasKey)
         {
@@ -102,20 +122,29 @@ public class RoofExitTrigger : MonoBehaviour
             }
 
             // إزالة المفتاح من الحقيبة عند الاستخدام
-            if (InventoryManager.Instance.HasItem(requiredKey))
+            if (InventoryManager.Instance != null)
             {
-                InventoryManager.Instance.RemoveItem(requiredKey);
-            }
-            else if (!string.IsNullOrEmpty(InventoryManager.Instance.SelectedItem) &&
-                     InventoryManager.Instance.SelectedItem.Trim().Equals(requiredKey.Trim(), System.StringComparison.OrdinalIgnoreCase))
-            {
-                InventoryManager.Instance.RemoveItem(InventoryManager.Instance.SelectedItem);
+                if (InventoryManager.Instance.HasItem(requiredKey))
+                {
+                    InventoryManager.Instance.RemoveItem(requiredKey);
+                }
+                else if (InventoryManager.Instance.HasItem("key"))
+                {
+                    InventoryManager.Instance.RemoveItem("key");
+                }
+                else if (!string.IsNullOrEmpty(InventoryManager.Instance.SelectedItem))
+                {
+                    InventoryManager.Instance.RemoveItem(InventoryManager.Instance.SelectedItem);
+                }
             }
 
             Debug.Log("<color=green>[السطح]:</color> تم فتح السطح بنجاح! حفظ المرحلة والانتقال للقائمة...");
 
             // 1. حفظ إنهاء الغرفة
             PlayerPrefs.SetInt(roomDoneKey, 1);
+            PlayerPrefs.SetInt("Room2_Done", 1);
+            PlayerPrefs.SetInt("Level2_Done", 1);
+            PlayerPrefs.SetInt("Room2_Task_roof", 1);
             LevelProgressGuide.ReportTask("roof");
 
             // 2. راية فتح شاشة المستويات مباشرة عند دخول القائمة
@@ -140,12 +169,18 @@ public class RoofExitTrigger : MonoBehaviour
     {
         ProceduralAudioGenerator.PlaySound("level_complete", 1.0f);
 
-        Canvas canvas = FindAnyObjectByType<Canvas>();
+        Canvas canvas = null;
+        GameObject guideCanvasObj = GameObject.Find("ProgressGuideCanvas_HUD");
+        if (guideCanvasObj != null) canvas = guideCanvasObj.GetComponent<Canvas>();
+        if (canvas == null) canvas = FindAnyObjectByType<Canvas>();
+
         GameObject banner = null;
         if (canvas != null)
         {
             banner = new GameObject("Room2Completion", typeof(RectTransform));
             banner.transform.SetParent(canvas.transform, false);
+            banner.transform.SetAsLastSibling();
+
             RectTransform bannerRect = banner.GetComponent<RectTransform>();
             bannerRect.anchorMin = new Vector2(0.5f, 0.5f);
             bannerRect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -183,8 +218,26 @@ public class RoofExitTrigger : MonoBehaviour
             }
         }
 
-        yield return new WaitForSeconds(4f);
+        yield return new WaitForSeconds(3f);
         if (banner != null) Destroy(banner);
+
+        bool videoDone = false;
+        if (UniversalVideoPlayer.Instance != null)
+        {
+            UniversalVideoPlayer.Instance.PlayRoom2EndVideo(() => videoDone = true);
+        }
+        else
+        {
+            var uvp = FindAnyObjectByType<UniversalVideoPlayer>();
+            if (uvp != null) uvp.PlayRoom2EndVideo(() => videoDone = true);
+            else videoDone = true;
+        }
+
+        while (!videoDone)
+        {
+            yield return null;
+        }
+
         SceneManager.LoadScene(menuSceneName);
     }
 }

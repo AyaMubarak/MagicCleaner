@@ -48,6 +48,13 @@ public class LevelsMenuManager : MonoBehaviour
     {
         if (SceneManager.GetActiveScene().name != "MainMenu") return;
 
+        // ربط زر PLAY حتى لو كانت LevelsPanel مخفية (Start لا يعمل على كائن غير مفعّل)
+        LevelsMenuManager[] allManagers = Object.FindObjectsByType<LevelsMenuManager>(FindObjectsInactive.Include);
+        if (allManagers != null && allManagers.Length > 0)
+        {
+            allManagers[0].SetupPlayButtonDirectLaunch();
+        }
+
         if (PlayerPrefs.GetInt("OpenLevelsDirectly", 0) == 1)
         {
             PlayerPrefs.DeleteKey("OpenLevelsDirectly");
@@ -107,8 +114,72 @@ public class LevelsMenuManager : MonoBehaviour
 
     public void PlayGameDirectly()
     {
-        // تشغيل فيديو البداية ثم الدخول مباشرة للمرحلة الأولى بدون الحاجة لفتح القائمة والضغط على الليفل
-        StartCoroutine(LoadSceneFast(room1SceneName, null));
+        // تحديد المرحلة التي وصل إليها اللاعب لمتابعة اللعب من حيث توقف:
+        // 1. إذا كان اللاعب في منتصف أو بداية المرحلة الأولى (أو لأول مرة) -> Room1
+        // 2. إذا أنهى المرحلة الأولى ووصل للثانية (سواء في بدايتها أو منتصفها) -> Room2
+        // 3. إذا أنهى المرحلة الثانية ووصل للثالثة -> Room3
+        // 4. إذا كانت أول مرة تشغيل -> Room1 ويتم عرض فيديو البداية تلقائياً
+        float room1Pct = PlayerPrefs.GetFloat($"{room1SceneName}_ProgressPct", 0f);
+        bool isRoom1Done = PlayerPrefs.GetInt("Room1_Done", 0) == 1 || 
+                           PlayerPrefs.GetInt("Level1_Done", 0) == 1 || 
+                           PlayerPrefs.GetInt("Room1_DoorOpened", 0) == 1 || 
+                           PlayerPrefs.GetInt("Room1_Won", 0) == 1 ||
+                           room1Pct >= 0.99f || Mathf.RoundToInt(room1Pct * 100f) >= 100;
+
+        float room2Pct = PlayerPrefs.GetFloat($"{room2SceneName}_ProgressPct", 0f);
+        bool isRoom2Done = PlayerPrefs.GetInt("Room2_Done", 0) == 1 || 
+                           PlayerPrefs.GetInt("Level2_Done", 0) == 1 || 
+                           PlayerPrefs.GetInt("Room2_DoorOpened", 0) == 1 || 
+                           PlayerPrefs.GetInt("Room2_Task_roof", 0) == 1 ||
+                           room2Pct >= 0.99f || Mathf.RoundToInt(room2Pct * 100f) >= 100;
+
+        float room3Pct = PlayerPrefs.GetFloat($"{room3SceneName}_ProgressPct", 0f);
+        bool isRoom3Done = PlayerPrefs.GetInt("Room3_Done", 0) == 1 || 
+                           PlayerPrefs.GetInt("Level3_Done", 0) == 1 || 
+                           PlayerPrefs.GetInt("Room3_DoorOpened", 0) == 1 ||
+                           room3Pct >= 0.99f || Mathf.RoundToInt(room3Pct * 100f) >= 100;
+
+        string targetScene = room1SceneName;
+
+        if (!isRoom1Done)
+        {
+            // لم ينهِ المرحلة الأولى بعد (سواء أول مرة أو في منتصفها)
+            targetScene = room1SceneName;
+        }
+        else if (!isRoom2Done)
+        {
+            // أنهى المرحلة الأولى وهو حالياً في المرحلة الثانية
+            targetScene = room2SceneName;
+        }
+        else if (!isRoom3Done)
+        {
+            // أنهى الأولى والثانية وهو حالياً في المرحلة الثالثة
+            targetScene = room3SceneName;
+        }
+        else
+        {
+            // أنهى جميع المراحل، يبدأ من المرحلة الأولى أو الأخيرة
+            targetScene = room1SceneName;
+        }
+
+        MonoBehaviour runner = this;
+        if (!runner.gameObject.activeInHierarchy)
+        {
+            if (UniversalVideoPlayer.Instance != null && UniversalVideoPlayer.Instance.gameObject.activeInHierarchy)
+            {
+                runner = UniversalVideoPlayer.Instance;
+            }
+            else
+            {
+                MainMenuNavigation nav = Object.FindAnyObjectByType<MainMenuNavigation>();
+                if (nav != null && nav.gameObject.activeInHierarchy)
+                {
+                    runner = nav;
+                }
+            }
+        }
+
+        runner.StartCoroutine(LoadSceneFast(targetScene, null));
     }
 
     private void OnEnable()
@@ -155,13 +226,18 @@ public class LevelsMenuManager : MonoBehaviour
         float room1Pct = PlayerPrefs.GetFloat($"{room1SceneName}_ProgressPct", 0f);
         bool isRoom1Done = PlayerPrefs.GetInt("Room1_Done", 0) == 1 || 
                            PlayerPrefs.GetInt("Level1_Done", 0) == 1 || 
+                           PlayerPrefs.GetInt("Room1_DoorOpened", 0) == 1 || 
                            PlayerPrefs.GetInt("Room1_Won", 0) == 1 ||
                            room1Pct >= 0.99f || Mathf.RoundToInt(room1Pct * 100f) >= 100;
 
-        bool isRoom2Done = PlayerPrefs.GetInt("Room2_Done", 0) == 1 || PlayerPrefs.GetInt("Level2_Done", 0) == 1;
-        bool isRoom3Done = PlayerPrefs.GetInt("Room3_Done", 0) == 1 || PlayerPrefs.GetInt("Level3_Done", 0) == 1;
+        bool isRoom2Done = PlayerPrefs.GetInt("Room2_Done", 0) == 1 
+                        || PlayerPrefs.GetInt("Level2_Done", 0) == 1
+                        || PlayerPrefs.GetInt("Room2_Task_roof", 0) == 1;
 
-        bool isRoom2Unlocked = isRoom1Done;
+        bool isRoom3Done = PlayerPrefs.GetInt("Room3_Done", 0) == 1 || PlayerPrefs.GetInt("Level3_Done", 0) == 1 || PlayerPrefs.GetInt("Room3_DoorOpened", 0) == 1;
+
+        bool isRoom2Unlocked = isRoom1Done || PlayerPrefs.GetInt("Room2_Unlocked", 0) == 1;
+        bool isRoom3Unlocked = isRoom2Done || PlayerPrefs.GetInt("Room3_Unlocked", 0) == 1;
 
         // ================= LEVEL 1 =================
         SetupLevelSlot(
@@ -186,7 +262,7 @@ public class LevelsMenuManager : MonoBehaviour
         // ================= LEVEL 3 =================
         SetupLevelSlot(
             isCompleted: isRoom3Done,
-            isUnlocked: isRoom2Done,
+            isUnlocked: isRoom3Unlocked,
             button: room3Button,
             buttonText: room3Text,
             completedUI: room3CompletedUI,
@@ -221,13 +297,15 @@ public class LevelsMenuManager : MonoBehaviour
                 Transform goldenBorder = completedUI.transform.Find("Image");
                 if (goldenBorder != null) goldenBorder.gameObject.SetActive(true);
 
-                // النص يظهر COMPLETED بشكل احترافي وواضح
+                // النص يظهر Completed بشكل واضح وعلى سطر واحد دون انقسام
                 TextMeshProUGUI compText = completedUI.GetComponentInChildren<TextMeshProUGUI>();
                 if (compText != null)
                 {
-                    compText.text = "COMPLETED";
+                    compText.text = "Completed";
                     compText.fontStyle = FontStyles.Bold;
-                    compText.fontSize = 24f;
+                    compText.textWrappingMode = TextWrappingModes.NoWrap;
+                    compText.overflowMode = TextOverflowModes.Ellipsis;
+                    compText.fontSize = 20f;
                     compText.color = Color.white;
                     compText.alignment = TextAlignmentOptions.Center;
                 }
@@ -292,13 +370,13 @@ public class LevelsMenuManager : MonoBehaviour
                 // وضعية وحجم النص ليملأ مساحة الزر بشكل متناسق وموزون
                 // Keep original scene layout for buttonText
 
-                // إذا بدأ اللاعب ولم ينهِ -> CONTINUE (33%) بلون متناسق وواضح، وإلا -> START
+                // إذا بدأ اللاعب ولم ينهِ -> CONTINUE (33%) بحجم خط أصغر لتبقى الجملة كاملة على سطر واحد
                 if (hasStarted || progressPct > 0f)
                 {
                     int pct = Mathf.RoundToInt(progressPct * 100f);
-                    buttonText.text = $"CONTINUE  ({pct}%)";
+                    buttonText.text = $"CONTINUE ({pct}%)";
                     buttonText.color = Color.white;
-                    buttonText.fontSize = 20f;
+                    buttonText.fontSize = 17f; // حجم أصغر ومدروس لتظهر الجملة والنسبة متكاملة دون انقسام
                 }
                 else
                 {
@@ -342,87 +420,84 @@ public class LevelsMenuManager : MonoBehaviour
         UpdateMiniProgressBar(button, sceneName, progressPct, isCompleted, isUnlocked);
     }
 
-    private static Sprite cachedOpenLockSprite = null;
-    private static Sprite cachedClosedLockSprite = null;
+    private static Sprite cachedToolsSprite = null;
+    private static Sprite cachedLockedPadlockSprite = null;
 
     private void AdjustButtonIcon(Button button, bool isUnlocked)
     {
         if (button == null) return;
 
-        // البحث عن أيقونة القفل "new icons" التابعة للزر
+        // البحث عن أيقونة "new icons" التابعة للزر
         Transform iconT = button.transform.Find("new icons");
         if (iconT != null)
         {
             iconT.gameObject.SetActive(true);
-            RectTransform iconRt = iconT.GetComponent<RectTransform>();
             Image iconImg = iconT.GetComponent<Image>();
-
-            // Keep original scene layout for iconRt
 
             if (iconImg != null)
             {
                 if (isUnlocked)
                 {
-                    // تحميل أيقونة القفل المفتوح (Open Padlock)
-                    if (openLockSprite != null)
+                    // عندما تكون المرحلة Start / Unlocked: نستخدم دائماً أيقونة tools الأصلية الخاصة بك من الكانفاس
+                    if (cachedToolsSprite == null)
                     {
-                        cachedOpenLockSprite = openLockSprite;
-                    }
+                        if (room1Button != null)
+                        {
+                            Transform r1Icon = room1Button.transform.Find("new icons");
+                            if (r1Icon != null)
+                            {
+                                Image r1Img = r1Icon.GetComponent<Image>();
+                                if (r1Img != null && r1Img.sprite != null)
+                                {
+                                    cachedToolsSprite = r1Img.sprite;
+                                }
+                            }
+                        }
 
-                    if (cachedOpenLockSprite == null)
-                    {
-                        cachedOpenLockSprite = Resources.Load<Sprite>("padlock_open") ?? Resources.Load<Sprite>("padlock") ?? 
-                                               Resources.Load<Sprite>("padlock_0");
-                        if (cachedOpenLockSprite == null)
+                        if (cachedToolsSprite == null)
                         {
                             Sprite[] allSprites = Resources.FindObjectsOfTypeAll<Sprite>();
                             foreach (var s in allSprites)
                             {
-                                if (s != null && (s.name == "padlock_0" || s.name == "padlock"))
+                                if (s != null && (s.name.StartsWith("tools", System.StringComparison.OrdinalIgnoreCase)))
                                 {
-                                    cachedOpenLockSprite = s;
+                                    cachedToolsSprite = s;
                                     break;
                                 }
                             }
                         }
                     }
 
-                    if (cachedOpenLockSprite != null)
+                    if (cachedToolsSprite != null)
                     {
-                        iconImg.sprite = cachedOpenLockSprite;
+                        iconImg.sprite = cachedToolsSprite;
                     }
 
-                    // لون الأيقونة في المرحلة المفتوحة مشرق بلون ذهبي ناصع متناسق
-                    iconImg.color = new Color(1f, 0.85f, 0.4f, 1f);
+                    // الحفاظ على لون وشكل الأيقونة الأبيض الأصلي دون أي تلوين أصفر
+                    iconImg.color = Color.white;
                 }
                 else
                 {
-                    // قفل مغلق للمراحل المقفلة LOCKED
-                    if (closedLockSprite != null)
-                    {
-                        cachedClosedLockSprite = closedLockSprite;
-                    }
-
-                    if (cachedClosedLockSprite == null)
+                    // عندما تكون المرحلة مقفلة Locked: استخدام أيقونة padlock (1) الأصلية الخاصة بك
+                    if (cachedLockedPadlockSprite == null)
                     {
                         Sprite[] allSprites = Resources.FindObjectsOfTypeAll<Sprite>();
                         foreach (var s in allSprites)
                         {
-                            if (s != null && (s.name == "padlock (1)_0" || s.name == "padlock (1)"))
+                            if (s != null && (s.name.StartsWith("padlock (1)", System.StringComparison.OrdinalIgnoreCase)))
                             {
-                                cachedClosedLockSprite = s;
+                                cachedLockedPadlockSprite = s;
                                 break;
                             }
                         }
                     }
 
-                    if (cachedClosedLockSprite != null)
+                    if (cachedLockedPadlockSprite != null)
                     {
-                        iconImg.sprite = cachedClosedLockSprite;
+                        iconImg.sprite = cachedLockedPadlockSprite;
                     }
 
-                    // لون الأيقونة في المرحلة المقفلة هادئ مع النص
-                    iconImg.color = new Color(0.85f, 0.85f, 0.85f, 0.8f);
+                    iconImg.color = Color.white;
                 }
             }
         }
@@ -536,9 +611,10 @@ public class LevelsMenuManager : MonoBehaviour
             PlayerPrefs.DeleteKey($"{sceneName}_Task_{t}");
         }
 
-        // مسح نسبة الإنجاز وحالة البدء لهذا المشهد فقط
+        // مسح نسبة الإنجاز وحالة البدء وأرقام الصندوق لهذا المشهد فقط
         PlayerPrefs.DeleteKey($"{sceneName}_ProgressPct");
         PlayerPrefs.DeleteKey($"{sceneName}_Started");
+        PlayerPrefs.DeleteKey($"{sceneName}_Chest_EnteredCode");
 
         // مسح حالة الفوز للغرفة الأولى حتى تعود الغبرة والعتمة وتبدأ اللعبة من الأول والجديد
         if (sceneName == room1SceneName || sceneName == "Room1")
@@ -555,6 +631,10 @@ public class LevelsMenuManager : MonoBehaviour
         {
             PlayerPrefs.DeleteKey("Room2_Done");
             PlayerPrefs.DeleteKey("Level2_Done");
+            PlayerPrefs.DeleteKey("HasItem_Herb");
+            PlayerPrefs.DeleteKey("HasItem_WaterFlask");
+            PlayerPrefs.DeleteKey("HasItem_AcidPotion");
+            PlayerPrefs.DeleteKey("HasItem_ExitKey");
         }
 
         if (sceneName == "Room3")
@@ -568,11 +648,15 @@ public class LevelsMenuManager : MonoBehaviour
             PlayerPrefs.DeleteKey("Room3_HourHandCollected");
             PlayerPrefs.DeleteKey("HasItem_ClockHand");
             PlayerPrefs.DeleteKey("HasItem_Room3Key");
+            PlayerPrefs.DeleteKey("HasItem_GoldenKey");
+            PlayerPrefs.DeleteKey("HasItem_MemoryPainting");
             PlayerPrefs.DeleteKey("Room3_Task_painting");
             PlayerPrefs.DeleteKey("Room3_Task_cupboard");
             PlayerPrefs.DeleteKey("Room3_Task_clock_hand");
             PlayerPrefs.DeleteKey("Room3_Task_key");
             PlayerPrefs.DeleteKey("Room3_Task_door");
+            PlayerPrefs.DeleteKey("Room3_ProgressPct");
+            PlayerPrefs.DeleteKey("Room3_Started");
         }
 
         // مسح مفاتيح مشاهدة الفيديوهات حتى تعود للعمل مع اللعبة الجديدة

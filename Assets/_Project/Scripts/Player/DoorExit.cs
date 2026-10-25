@@ -311,8 +311,51 @@ public class DoorExit : MonoBehaviour
         // إعطاء اللاعب وقتاً (2.0 ثانية) ليعيش الفوز المبهج ويرى البيت منور والمفرقعات
         yield return new WaitForSeconds(2.0f);
 
-        // تشغيل فيديو الانتقال للغرفة الثانية بحالة فتح المفتاح للباب
-        if (UniversalVideoPlayer.Instance != null && (UniversalVideoPlayer.Instance.nextLevelVideoClip != null || !string.IsNullOrEmpty(UniversalVideoPlayer.Instance.nextLevelVideoUrl)))
+        string currentScene = SceneManager.GetActiveScene().name;
+
+        // إذا كانت المرحلة الثالثة: تشغيل فيديو نهاية المرحلة 3 (gemini_generated_video_9286ebd6.mp4)
+        if (currentScene == "Room3")
+        {
+            if (UniversalVideoPlayer.Instance != null)
+            {
+                UniversalVideoPlayer.Instance.PlayRoom3EndVideo(() =>
+                {
+                    PlayerPrefs.SetInt("OpenLevelsDirectly", 1);
+                    PlayerPrefs.Save();
+                    if (!string.IsNullOrEmpty(menuSceneName))
+                    {
+                        SceneManager.LoadScene(menuSceneName);
+                    }
+                });
+            }
+            else
+            {
+                var uvp = FindAnyObjectByType<UniversalVideoPlayer>();
+                if (uvp != null)
+                {
+                    uvp.PlayRoom3EndVideo(() =>
+                    {
+                        PlayerPrefs.SetInt("OpenLevelsDirectly", 1);
+                        PlayerPrefs.Save();
+                        if (!string.IsNullOrEmpty(menuSceneName))
+                        {
+                            SceneManager.LoadScene(menuSceneName);
+                        }
+                    });
+                }
+                else
+                {
+                    PlayerPrefs.SetInt("OpenLevelsDirectly", 1);
+                    PlayerPrefs.Save();
+                    if (!string.IsNullOrEmpty(menuSceneName))
+                    {
+                        SceneManager.LoadScene(menuSceneName);
+                    }
+                }
+            }
+        }
+        // إذا كانت المرحلة الأولى: تشغيل فيديو الانتقال للمرحلة الثانية
+        else if (UniversalVideoPlayer.Instance != null && (UniversalVideoPlayer.Instance.nextLevelVideoClip != null || !string.IsNullOrEmpty(UniversalVideoPlayer.Instance.nextLevelVideoUrl)))
         {
             UniversalVideoPlayer.Instance.PlayNextLevelCutscene(() =>
             {

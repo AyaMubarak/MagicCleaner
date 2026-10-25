@@ -342,7 +342,25 @@ public class Room3DoorExit : MonoBehaviour
 
     private IEnumerator WaitAndProceedToMenu()
     {
-        yield return new WaitForSeconds(2.0f);
+        yield return new WaitForSeconds(2.5f);
+
+        bool videoDone = false;
+        if (UniversalVideoPlayer.Instance != null)
+        {
+            UniversalVideoPlayer.Instance.PlayRoom3EndVideo(() => videoDone = true);
+        }
+        else
+        {
+            var uvp = FindAnyObjectByType<UniversalVideoPlayer>();
+            if (uvp != null) uvp.PlayRoom3EndVideo(() => videoDone = true);
+            else videoDone = true;
+        }
+
+        while (!videoDone)
+        {
+            yield return null;
+        }
+
         SceneManager.LoadScene(menuSceneName);
     }
 }

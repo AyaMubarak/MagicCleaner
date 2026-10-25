@@ -12,27 +12,45 @@ public class Room3ClockHandPickup : MonoBehaviour
     public bool IsHandCollected => handCollected;
     public Vector3 HourHandTargetPosition => handObject != null ? handObject.transform.position : transform.position;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void AutoCreate()
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void RegisterSceneLoadHandler()
     {
-        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name != "Room3") return;
-        if (FindAnyObjectByType<Room3ClockHandPickup>() == null)
-            new GameObject("Room3_ClockHandPickup").AddComponent<Room3ClockHandPickup>();
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded += (scene, mode) =>
+        {
+            if (scene.name == "Room3")
+            {
+                if (FindAnyObjectByType<Room3ClockHandPickup>() == null)
+                    new GameObject("Room3_ClockHandPickup").AddComponent<Room3ClockHandPickup>();
+            }
+        };
     }
 
     private void Start()
     {
         mainCamera = Camera.main;
-        cabinetObject = FindObject("Secret box for clock", "Secret box");
-        handObject = FindObject("hour_hand_for_clock", "hour hand");
-        EnsureCollider(cabinetObject);
-        EnsureCollider(handObject);
         cabinetOpened = PlayerPrefs.GetInt("Room3_CabinetOpened", 0) == 1;
         handCollected = PlayerPrefs.GetInt("Room3_HourHandCollected", 0) == 1;
+
+        FindObjectsAndSetup();
+    }
+
+    private void FindObjectsAndSetup()
+    {
+        cabinetObject = FindObject("Secret box for clock", "Secret box");
+        handObject = FindObject("hour_hand_for_clock", "hour hand");
+
+        EnsureCollider(cabinetObject);
+        EnsureCollider(handObject);
+
         if (cabinetOpened && cabinetObject != null)
-            cabinetObject.SetActive(false);
+        {
+            HideSecretBox(cabinetObject);
+        }
+
         if (handCollected && handObject != null)
+        {
             handObject.SetActive(false);
+        }
     }
 
     private void Update()
@@ -46,64 +64,100 @@ public class Room3ClockHandPickup : MonoBehaviour
     {
         if (mainCamera == null) mainCamera = Camera.main;
         if (mainCamera == null) return;
+
+        if (cabinetObject == null || handObject == null)
+        {
+            FindObjectsAndSetup();
+        }
+
         Ray ray = mainCamera.ScreenPointToRay(screenPosition);
-        RaycastHit[] hits = Physics.RaycastAll(ray, 20f);
+        RaycastHit[] hits = Physics.RaycastAll(ray, 30f);
         foreach (RaycastHit hit in hits)
         {
-            if (IsSecretBoxHit(hit.transform) && !cabinetOpened)
+            // 1. Click on Secret Box (or its door) to open/disappear it
+            if (!cabinetOpened && IsSecretBoxHit(hit.transform))
             {
-                // شرط: يجب أولاً تنظيف لوحة الذكريات وحفظها في الحقيبة
-                bool isPaintingDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("painting"))
-                                      || PlayerPrefs.GetInt("Room3_Task_painting", 0) == 1
-                                      || (InventoryManager.Instance != null && InventoryManager.Instance.HasItem("MemoryPainting"));
-
-                if (!isPaintingDone)
-                {
-                    Debug.Log("<color=yellow>[الصندوق السري]:</color> مقفل بإحكام! افحص لوحة الذكريات ونظفها أولاً لمعرفة التوقيت.");
-                    ProceduralAudioGenerator.PlaySound("door_locked", 0.7f);
-                    return;
-                }
-
                 cabinetOpened = true;
-                Transform boxRoot = FindSecretBoxRoot(hit.transform);
-                if (boxRoot != null) boxRoot.gameObject.SetActive(false);
                 PlayerPrefs.SetInt("Room3_CabinetOpened", 1);
                 PlayerPrefs.Save();
-                ProceduralAudioGenerator.PlaySound("door_open", 0.8f);
+
+                HideSecretBox(hit.transform.gameObject);
+                if (cabinetObject != null) HideSecretBox(cabinetObject);
+
+                // Make sure the hour hand is visible and has a collider ready to pick up
+                if (handObject != null)
+                {
+                    handObject.SetActive(true);
+                    EnsureCollider(handObject);
+                }
+
+                ProceduralAudioGenerator.PlaySound("door_open", 0.85f);
+                Debug.Log("<color=green>[Room3]:</color> Secret box opened/disappeared! You can now take the hour hand.");
                 return;
             }
 
-            if (cabinetOpened && !handCollected && Matches(hit.transform, handObject))
+            // 2. Click on the hour hand to pick it up into bag
+            if (!handCollected && (IsHourHandHit(hit.transform) || (cabinetOpened && Matches(hit.transform, handObject))))
             {
-                handCollected = true;
-                if (handObject != null)
-                    handObject.SetActive(false);
-                PlayerPrefs.SetInt("Room3_HourHandCollected", 1);
-                PlayerPrefs.SetInt("HasItem_ClockHand", 1);
-                PlayerPrefs.Save();
-
-                if (InventoryManager.Instance != null)
-                {
-                    InventoryManager.Instance.AddItem("ClockHand", InventoryManager.GetClockTimeSprite(), true);
-                    InventoryManager.Instance.ShowInventoryTemporarily();
-                }
-
-                LevelProgressGuide.ReportTask("cupboard");
-                ProceduralAudioGenerator.PlaySound("pickup", 0.85f);
+                CollectHourHand();
                 return;
             }
         }
+    }
+
+    private void HideSecretBox(GameObject obj)
+    {
+        Transform boxRoot = FindSecretBoxRoot(obj.transform);
+        if (boxRoot != null)
+        {
+            // Disable mesh renderer or the object itself so it disappears cleanly
+            boxRoot.gameObject.SetActive(false);
+        }
+        else if (obj != null)
+        {
+            obj.SetActive(false);
+        }
+    }
+
+    private void CollectHourHand()
+    {
+        handCollected = true;
+        PlayerPrefs.SetInt("Room3_HourHandCollected", 1);
+        PlayerPrefs.SetInt("HasItem_ClockHand", 1);
+        PlayerPrefs.Save();
+
+        if (handObject != null)
+            handObject.SetActive(false);
+
+        if (InventoryManager.Instance != null)
+        {
+            InventoryManager.Instance.AddItem("ClockHand", InventoryManager.GetClockTimeSprite(), true);
+            InventoryManager.Instance.ShowInventoryTemporarily();
+        }
+
+        LevelProgressGuide.ReportTask("cupboard");
+        ProceduralAudioGenerator.PlaySound("pickup", 0.9f);
+        Debug.Log("<color=green>[Room3]:</color> Hour hand collected into inventory bag!");
     }
 
     private static void EnsureCollider(GameObject target)
     {
         if (target == null) return;
 
+        Collider mainCol = target.GetComponent<Collider>();
+        if (mainCol == null)
+        {
+            target.AddComponent<BoxCollider>();
+        }
+
         Renderer[] renderers = target.GetComponentsInChildren<Renderer>(true);
         foreach (Renderer renderer in renderers)
         {
             if (renderer.GetComponent<Collider>() == null)
-                renderer.gameObject.AddComponent<BoxCollider>();
+            {
+                BoxCollider bc = renderer.gameObject.AddComponent<BoxCollider>();
+                bc.isTrigger = false;
+            }
         }
     }
 
@@ -116,6 +170,20 @@ public class Room3ClockHandPickup : MonoBehaviour
     {
         if (Matches(hit, cabinetObject)) return true;
         return FindSecretBoxRoot(hit) != null;
+    }
+
+    private bool IsHourHandHit(Transform hit)
+    {
+        if (Matches(hit, handObject)) return true;
+        Transform curr = hit;
+        while (curr != null)
+        {
+            string n = curr.name.ToLowerInvariant();
+            if (n.Contains("hour_hand") || n.Contains("hour hand") || n.Contains("clock_hand"))
+                return true;
+            curr = curr.parent;
+        }
+        return false;
     }
 
     private static Transform FindSecretBoxRoot(Transform current)
@@ -137,7 +205,10 @@ public class Room3ClockHandPickup : MonoBehaviour
         {
             string candidateName = candidate.name.ToLowerInvariant();
             foreach (string name in names)
-                if (candidateName.Contains(name.ToLowerInvariant())) return candidate;
+            {
+                if (candidateName.Contains(name.ToLowerInvariant()))
+                    return candidate;
+            }
         }
         return null;
     }

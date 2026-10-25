@@ -75,19 +75,36 @@ public class Room3KeyPickup : MonoBehaviour
     {
         if (keyVisualObj != null || isCollected) return;
 
+        // Find Grandfather Clock position to spawn key exactly where the clock was
+        Vector3 pos = spawnPosition;
+        GameObject clock = GameObject.Find("grandfather_clock") ?? GameObject.Find("GrandfatherClock") ?? GameObject.Find("Clock") ?? GameObject.Find("ClockPuzzle");
+        if (clock == null && GrandfatherClockPuzzle.Instance != null)
+        {
+            clock = GrandfatherClockPuzzle.Instance.gameObject;
+        }
+
+        if (clock != null)
+        {
+            pos = clock.transform.position + Vector3.up * 1.1f;
+        }
+        else
+        {
+            GameObject cabinet = GameObject.Find("capinat") ?? GameObject.Find("Cabinet") ?? GameObject.Find("Cupboard");
+            if (cabinet != null) pos = cabinet.transform.position + Vector3.up * 1.0f;
+        }
+
+        spawnPosition = pos;
+
         // Try finding existing key in scene or cabinet
         GameObject existing = GameObject.Find("key") ?? GameObject.Find("ExitKey") ?? GameObject.Find("ChestKey") ?? GameObject.Find("GoldenKey");
         if (existing != null && existing.transform.parent != null && !existing.name.Contains("Door"))
         {
             keyVisualObj = existing;
+            keyVisualObj.transform.position = pos;
             keyVisualObj.SetActive(true);
             EnsureColliderAndScript(keyVisualObj);
             return;
         }
-
-        // Locate cabinet or place near clock original spot
-        GameObject cabinet = GameObject.Find("capinat") ?? GameObject.Find("Cabinet") ?? GameObject.Find("Cupboard");
-        Vector3 pos = cabinet != null ? cabinet.transform.position + Vector3.up * 1.0f : spawnPosition;
 
         keyVisualObj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
         keyVisualObj.name = "Room3_GoldenKey";

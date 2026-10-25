@@ -137,7 +137,9 @@ public class UniversalVideoPlayer : MonoBehaviour
             new ItemVideoMapping { itemId = "Wall", videoUrl = GetStreamingVideoPath("gemini_generated_video_ff76d4f1.mp4") },
             new ItemVideoMapping { itemId = "WallSecretCode", videoUrl = GetStreamingVideoPath("gemini_generated_video_ff76d4f1.mp4") },
             new ItemVideoMapping { itemId = "MemoryPainting", videoUrl = GetStreamingVideoPath("Untitled design.mp4") },
-            new ItemVideoMapping { itemId = "Painting", videoUrl = GetStreamingVideoPath("Untitled design.mp4") }
+            new ItemVideoMapping { itemId = "Painting", videoUrl = GetStreamingVideoPath("Untitled design.mp4") },
+            new ItemVideoMapping { itemId = "Herb", videoUrl = GetStreamingVideoPath("gemini_generated_video_96c2170b.mp4") },
+            new ItemVideoMapping { itemId = "Herbs", videoUrl = GetStreamingVideoPath("gemini_generated_video_96c2170b.mp4") }
         };
     }
 
@@ -323,6 +325,36 @@ public class UniversalVideoPlayer : MonoBehaviour
     {
         string path = GetStreamingVideoPath("Untitled design.mp4");
         Debug.Log("<color=cyan>[UniversalVideoPlayer]:</color> تشغيل فيديو لوحة الذكريات: " + path);
+        PlayVideoUrl(path, onComplete, null);
+    }
+
+    /// <summary>
+    /// 6. فيديو الأعشاب (gemini_generated_video_96c2170b.mp4) - عند التقاط الأعشاب في الغرفة 2
+    /// </summary>
+    public void PlayHerbVideo(Action onComplete = null)
+    {
+        string path = GetStreamingVideoPath("gemini_generated_video_96c2170b.mp4");
+        Debug.Log("<color=cyan>[UniversalVideoPlayer]:</color> تشغيل فيديو الأعشاب: " + path);
+        PlayVideoUrl(path, onComplete, null);
+    }
+
+    /// <summary>
+    /// 7. فيديو نهاية المرحلة الثانية (Untitled design (1).mp4) - عند إكمال المرحلة الثانية والخروج من السطح
+    /// </summary>
+    public void PlayRoom2EndVideo(Action onComplete = null)
+    {
+        string path = GetStreamingVideoPath("Untitled design (1).mp4");
+        Debug.Log("<color=cyan>[UniversalVideoPlayer]:</color> تشغيل فيديو نهاية المرحلة الثانية: " + path);
+        PlayVideoUrl(path, onComplete, null);
+    }
+
+    /// <summary>
+    /// 8. فيديو نهاية المرحلة الثالثة (gemini_generated_video_9286ebd6.mp4) - عند فتح باب الغرفة 3 وإنهاء المرحلة
+    /// </summary>
+    public void PlayRoom3EndVideo(Action onComplete = null)
+    {
+        string path = GetStreamingVideoPath("gemini_generated_video_9286ebd6.mp4");
+        Debug.Log("<color=cyan>[UniversalVideoPlayer]:</color> تشغيل فيديو نهاية المرحلة الثالثة: " + path);
         PlayVideoUrl(path, onComplete, null);
     }
 

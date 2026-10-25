@@ -63,25 +63,29 @@ public class GrandfatherClockPuzzle : MonoBehaviour
     private static TextMeshProUGUI notificationTextTMP;
     private static Coroutine notificationCoroutine;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void AutoInitClockInRoom3()
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void RegisterSceneLoadHandler()
     {
-        if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name != "Room3") return;
-
-        if (FindAnyObjectByType<GrandfatherClockPuzzle>() == null)
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded += (scene, mode) =>
         {
-            GameObject clockObj = FindClockInScene();
-            if (clockObj != null)
+            if (scene.name == "Room3")
             {
-                Debug.Log("<color=cyan>[GrandfatherClock]:</color> Auto-attaching GrandfatherClockPuzzle to " + clockObj.name);
-                clockObj.AddComponent<GrandfatherClockPuzzle>();
+                if (FindAnyObjectByType<GrandfatherClockPuzzle>() == null)
+                {
+                    GameObject clockObj = FindClockInScene();
+                    if (clockObj != null)
+                    {
+                        Debug.Log("<color=cyan>[GrandfatherClock]:</color> Auto-attaching GrandfatherClockPuzzle to " + clockObj.name);
+                        clockObj.AddComponent<GrandfatherClockPuzzle>();
+                    }
+                    else
+                    {
+                        GameObject manager = new GameObject("Room3_GrandfatherClock_Manager");
+                        manager.AddComponent<GrandfatherClockPuzzle>();
+                    }
+                }
             }
-            else
-            {
-                GameObject manager = new GameObject("Room3_GrandfatherClock_Manager");
-                manager.AddComponent<GrandfatherClockPuzzle>();
-            }
-        }
+        };
     }
 
     private static GameObject FindClockInScene()
@@ -193,29 +197,29 @@ public class GrandfatherClockPuzzle : MonoBehaviour
         // 2. إذا لم يتم تركيب العقرب بعد:
         if (!isHandInstalled)
         {
-            // التحقق هل العقرب محدد ومختار حالياً في الحقيبة من قبل اللاعب
-            string sel = (InventoryManager.Instance != null) ? InventoryManager.Instance.SelectedItem : "";
-            bool isHandSelected = !string.IsNullOrEmpty(sel) &&
-                                  (sel.Equals(clockHandItemID, System.StringComparison.OrdinalIgnoreCase) ||
-                                   sel.Equals("HourHand", System.StringComparison.OrdinalIgnoreCase) ||
-                                   sel.IndexOf("hand", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                   sel.IndexOf("clock", System.StringComparison.OrdinalIgnoreCase) >= 0);
+            // التحقق هل اللاعب يملك العقرب (سواء حدده بالحقيبة أو موجود معه تلقائياً)
+            bool hasHandInInventory = (InventoryManager.Instance != null && 
+                                      (InventoryManager.Instance.HasItem(clockHandItemID) || 
+                                       InventoryManager.Instance.HasItem("HourHand") || 
+                                       InventoryManager.Instance.HasItem("clock_hand")))
+                                      || PlayerPrefs.GetInt("Room3_HourHandCollected", 0) == 1
+                                      || PlayerPrefs.GetInt("HasItem_ClockHand", 0) == 1;
 
-            if (isHandSelected)
+            if (hasHandInInventory)
             {
-                // اللاعب اختار عقرب الساعة من الحقيبة ونقر على الساعة -> يتم تركيبه وتفتح الساعة
+                // تركيب العقرب تلقائياً بدون إجبار اللاعب على فتح الحقيبة وتحديده يدوياً!
                 InstallHandFromInventory();
                 OpenClockScreen();
             }
             else
             {
-                // إذا نقر على الساعة بدون تحديد العقرب من الحقيبة تصدر صوت قفل فقط ولا تفتح
+                // لم يعثر على العقرب بعد
                 ProceduralAudioGenerator.PlaySound("door_locked", 0.65f);
             }
         }
         else
         {
-            // العقرب مركب مسبقاً -> تفتح شاشة الساعة
+            // العقرب مركب مسبقاً -> تفتح شاشة الساعة مباشرة لضبطها على 8:15
             OpenClockScreen();
         }
     }
@@ -406,14 +410,29 @@ public class GrandfatherClockPuzzle : MonoBehaviour
             cabinetLockObject.SetActive(false);
         }
 
-        if (goldenKeyInCabinet != null)
+        // إظهار مجسم المفتاح الذهبي الحقيقي في المشهد
+        GameObject keyObj = goldenKeyInCabinet;
+        if (keyObj == null)
         {
-            goldenKeyInCabinet.SetActive(true);
+            KeyPickup[] allKeyPickups = Resources.FindObjectsOfTypeAll<KeyPickup>();
+            foreach (var kp in allKeyPickups)
+            {
+                if (kp != null && kp.gameObject.scene.isLoaded)
+                {
+                    keyObj = kp.gameObject;
+                    break;
+                }
+            }
         }
-        else
+
+        if (keyObj == null)
         {
-            GameObject keyObj = GameObject.Find("key") ?? GameObject.Find("ExitKey") ?? GameObject.Find("ChestKey");
-            if (keyObj != null) keyObj.SetActive(true);
+            keyObj = GameObject.Find("key") ?? GameObject.Find("ExitKey") ?? GameObject.Find("ChestKey") ?? GameObject.Find("GoldenKey");
+        }
+
+        if (keyObj != null)
+        {
+            keyObj.SetActive(true);
         }
     }
 
@@ -616,20 +635,23 @@ public class GrandfatherClockPuzzle : MonoBehaviour
         mImg.raycastTarget = false;
 
         // Quick Adjust Tap Buttons (+ / -) directly under dial for effortless fine control
-        CreateButton(modal.transform, "BtnHourMinus", "-1 Hour", new Vector2(-190, -225), new Vector2(100, 38), () => AddHours(-1));
-        CreateButton(modal.transform, "BtnHourPlus", "+1 Hour", new Vector2(-80, -225), new Vector2(100, 38), () => AddHours(1));
+        CreateButton(modal.transform, "BtnHourMinus", "- 1h", new Vector2(-220, -225), new Vector2(75, 44), () => AddHours(-1));
+        CreateButton(modal.transform, "BtnHourPlus", "+ 1h", new Vector2(-135, -225), new Vector2(75, 44), () => AddHours(1));
 
-        CreateButton(modal.transform, "BtnMinMinus", "-5 Min", new Vector2(80, -225), new Vector2(100, 38), () => AddMinutes(-5));
-        CreateButton(modal.transform, "BtnMinPlus", "+5 Min", new Vector2(190, -225), new Vector2(100, 38), () => AddMinutes(5));
+        CreateButton(modal.transform, "BtnMinMinus5", "- 5m", new Vector2(-50, -225), new Vector2(75, 44), () => AddMinutes(-5));
+        CreateButton(modal.transform, "BtnMinPlus5", "+ 5m", new Vector2(35, -225), new Vector2(75, 44), () => AddMinutes(5));
+
+        CreateButton(modal.transform, "BtnMinMinus1", "- 1m", new Vector2(120, -225), new Vector2(75, 44), () => AddMinutes(-1));
+        CreateButton(modal.transform, "BtnMinPlus1", "+ 1m", new Vector2(205, -225), new Vector2(75, 44), () => AddMinutes(1));
 
         // Interactive Touch Guide Badge
-        CreateText(modal.transform, "TouchHint", "Touch & drag hands on dial, or use quick buttons above", 15, new Vector2(0, -270), new Vector2(600, 26), new Color(0.85f, 0.85f, 0.90f));
+        CreateText(modal.transform, "TouchHint", "Touch & drag hands on clock, or tap buttons above to reach 8:15", 15, new Vector2(0, -270), new Vector2(600, 26), new Color(0.95f, 0.90f, 0.60f));
 
         // Status Feedback (Empty initially, shows success message upon solving)
-        uiStatusFeedbackTMP = CreateText(modal.transform, "Status", "", 20, new Vector2(0, -305), new Vector2(580, 32), new Color(1.0f, 0.90f, 0.50f));
+        uiStatusFeedbackTMP = CreateText(modal.transform, "Status", "", 22, new Vector2(0, -305), new Vector2(580, 32), new Color(1.0f, 0.90f, 0.50f));
 
         // Close Button
-        CreateButton(modal.transform, "BtnClose", "CLOSE", new Vector2(0, -350), new Vector2(140, 42), CloseClockScreen, new Color(0.35f, 0.15f, 0.15f));
+        CreateButton(modal.transform, "BtnClose", "CLOSE", new Vector2(0, -350), new Vector2(160, 44), CloseClockScreen, new Color(0.35f, 0.15f, 0.15f));
 
         clockScreenCanvas.SetActive(false);
     }

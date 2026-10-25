@@ -1,6 +1,7 @@
 using UnityEngine;
 
 [RequireComponent(typeof(Collider))]
+// Collectible item for puzzle progression
 public class CollectibleItem : MonoBehaviour
 {
     [Header("Item Details")]
@@ -43,6 +44,47 @@ public class CollectibleItem : MonoBehaviour
 
             fallbackCollider.center = transform.InverseTransformPoint(bounds.center);
             fallbackCollider.size = bounds.size;
+        }
+    }
+
+    private void Start()
+    {
+        string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        bool alreadyTaken = false;
+
+        if (sceneName == "Room2")
+        {
+            if (itemID.Equals("Herb", System.StringComparison.OrdinalIgnoreCase))
+            {
+                alreadyTaken = PlayerPrefs.GetInt("Room2_Task_herb", 0) == 1 ||
+                               PlayerPrefs.GetInt("HasItem_Herb", 0) == 1 ||
+                               (InventoryManager.Instance != null && InventoryManager.Instance.HasItem("Herb")) ||
+                               PlayerPrefs.GetInt("Room2_Task_alchemy", 0) == 1;
+            }
+            else if (itemID.Equals("WaterFlask", System.StringComparison.OrdinalIgnoreCase))
+            {
+                alreadyTaken = PlayerPrefs.GetInt("Room2_Task_flask", 0) == 1 ||
+                               PlayerPrefs.GetInt("HasItem_WaterFlask", 0) == 1 ||
+                               (InventoryManager.Instance != null && InventoryManager.Instance.HasItem("WaterFlask")) ||
+                               PlayerPrefs.GetInt("Room2_Task_alchemy", 0) == 1;
+            }
+            else if (itemID.Equals("ExitKey", System.StringComparison.OrdinalIgnoreCase))
+            {
+                alreadyTaken = PlayerPrefs.GetInt("Room2_Task_key", 0) == 1 ||
+                               PlayerPrefs.GetInt("HasItem_ExitKey", 0) == 1 ||
+                               (InventoryManager.Instance != null && InventoryManager.Instance.HasItem("ExitKey"));
+            }
+        }
+        else
+        {
+            alreadyTaken = (InventoryManager.Instance != null && InventoryManager.Instance.HasItem(itemID)) ||
+                           PlayerPrefs.GetInt($"{sceneName}_Task_{itemID.ToLower()}", 0) == 1;
+        }
+
+        if (alreadyTaken)
+        {
+            isCollected = true;
+            gameObject.SetActive(false);
         }
     }
 
@@ -94,6 +136,8 @@ public class CollectibleItem : MonoBehaviour
         {
             isCollected = true;
             gameObject.SetActive(false); // أخفِ العنصر قبل تحديث هدف الجنية
+            PlayerPrefs.SetInt($"HasItem_{itemID}", 1);
+            PlayerPrefs.Save();
             if (itemID.Equals("ExitKey", System.StringComparison.OrdinalIgnoreCase))
             {
                 LevelProgressGuide.ReportTask("key");
@@ -102,7 +146,6 @@ public class CollectibleItem : MonoBehaviour
             {
                 if (itemID.Equals("WaterFlask", System.StringComparison.OrdinalIgnoreCase)) LevelProgressGuide.ReportTask("flask");
                 else if (itemID.Equals("Herb", System.StringComparison.OrdinalIgnoreCase)) LevelProgressGuide.ReportTask("herb");
-            
             }
             Debug.Log($"<color=green>[الالتقاط]:</color> تم أخذ {itemID} وإضافته للحقيبة.");
         }

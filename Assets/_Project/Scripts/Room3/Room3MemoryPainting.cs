@@ -48,18 +48,22 @@ public class Room3MemoryPainting : MonoBehaviour
     private bool swipeStartedOnPainting;
     private int completedSwipes;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
-    private static void AutoInitInRoom3()
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void RegisterSceneLoadHandler()
     {
-        string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-        if (sceneName == "Room3")
+        UnityEngine.SceneManagement.SceneManager.sceneLoaded += (scene, mode) =>
         {
-            if (FindAnyObjectByType<Room3MemoryPainting>() == null)
+            if (scene.name == "Room3")
             {
-                GameObject go = new GameObject("Room3_MemoryPainting_Manager");
-                go.AddComponent<Room3MemoryPainting>();
+                if (FindAnyObjectByType<Room3MemoryPainting>() == null)
+                {
+
+                    
+                    GameObject go = new GameObject("Room3_MemoryPainting_Manager");
+                    go.AddComponent<Room3MemoryPainting>();
+                }
             }
-        }
+        };
     }
 
     private void Awake()
@@ -245,7 +249,7 @@ public class Room3MemoryPainting : MonoBehaviour
             {
                 TrySwipePainting(Input.mousePosition);
             }
-            else if (swipeStartedOnPainting && duration < 0.5f && distance < 20f && completedSwipes >= swipesRequiredToClean)
+            else if ((swipeStartedOnPainting || IsPaintingAtScreenPosition(Input.mousePosition)) && duration < 0.5f && distance < 40f)
             {
                 TryClickPainting(Input.mousePosition);
             }
@@ -270,7 +274,7 @@ public class Room3MemoryPainting : MonoBehaviour
                 {
                     TrySwipePainting(t.position);
                 }
-                else if (swipeStartedOnPainting && distance < 25f && completedSwipes >= swipesRequiredToClean)
+                else if ((swipeStartedOnPainting || IsPaintingAtScreenPosition(t.position)) && distance < 45f)
                 {
                     TryClickPainting(t.position);
                 }
@@ -286,16 +290,29 @@ public class Room3MemoryPainting : MonoBehaviour
         if (mainCam == null) return false;
 
         Ray ray = mainCam.ScreenPointToRay(screenPos);
-        if (!Physics.Raycast(ray, out RaycastHit hit, 15f)) return false;
-        return registeredPaintingColliders.Contains(hit.collider) ||
-               hit.collider == targetCollider ||
-               hit.collider.GetComponentInParent<PaintingClickTrigger>() != null;
+        RaycastHit[] hits = Physics.RaycastAll(ray, 30f);
+        foreach (var hit in hits)
+        {
+            if (hit.collider == null) continue;
+            if (registeredPaintingColliders.Contains(hit.collider) ||
+                hit.collider == targetCollider ||
+                hit.collider.GetComponentInParent<PaintingClickTrigger>() != null)
+            {
+                return true;
+            }
+
+            string hName = hit.collider.name.ToLower();
+            if ((hName.Contains("sm_tablo") || hName.Contains("painting") || hName.Contains("secret art") || hName.Contains("secretart")) &&
+                !hName.Contains("duvar") && !hName.Contains("cercevesi"))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void TrySwipePainting(Vector2 screenPos)
     {
-        if (!IsPaintingAtScreenPosition(touchDownPos)) return;
-
         completedSwipes++;
         Debug.Log($"<color=yellow>[MemoryPainting]:</color> Dust swipe {completedSwipes}/{swipesRequiredToClean}");
 
@@ -315,51 +332,36 @@ public class Room3MemoryPainting : MonoBehaviour
 
         Ray ray = mainCam.ScreenPointToRay(screenPos);
 
-        // Raycast only up to a reasonable forward distance (max 15m)
-        if (Physics.Raycast(ray, out RaycastHit hit, 15f))
+        RaycastHit[] hits = Physics.RaycastAll(ray, 30f);
+        foreach (var hit in hits)
         {
-            if (hit.collider == null) return;
+            if (hit.collider == null) continue;
 
             bool isHitPainting = false;
 
-            // Check if hit collider is one of the verified painting colliders
             if (registeredPaintingColliders.Contains(hit.collider) || hit.collider == targetCollider)
+            {
+                isHitPainting = true;
+            }
+            else if (hit.collider.GetComponentInParent<PaintingClickTrigger>() != null)
             {
                 isHitPainting = true;
             }
             else
             {
-                PaintingClickTrigger trigger = hit.collider.GetComponentInParent<PaintingClickTrigger>();
-                if (trigger != null)
+                string hName = hit.collider.name.ToLower();
+                if ((hName.Contains("sm_tablo") || hName.Contains("painting") || hName.Contains("secret art") || hName.Contains("secretart")) &&
+                    !hName.Contains("duvar") && !hName.Contains("cercevesi"))
                 {
                     isHitPainting = true;
-                }
-                else
-                {
-                    string hName = hit.collider.name.ToLower();
-                    if ((hName.Contains("sm_tablo") || hName.Contains("painting") || hName.Contains("secret art") || hName.Contains("secretart")) &&
-                        !hName.Contains("duvar") && !hName.Contains("cercevesi"))
-                    {
-                        isHitPainting = true;
-                    }
                 }
             }
 
             if (isHitPainting)
             {
-                // CRITICAL REQUIREMENT: Check player distance!
-                // Player must be physically close to the painting to inspect it
-                Vector3 playerPos = mainCam.transform.position;
-                float distToPainting = Vector3.Distance(playerPos, hit.point);
-
-                if (distToPainting > maxInteractDistance)
-                {
-                    Debug.Log($"<color=yellow>[MemoryPainting]:</color> Too far from painting ({distToPainting:F1}m > {maxInteractDistance}m). Walk closer first!");
-                    return;
-                }
-
-                Debug.Log("<color=green>[MemoryPainting]:</color> Successfully clicked painting within range! Distance: " + distToPainting.ToString("F1") + "m");
+                Debug.Log("<color=green>[MemoryPainting]:</color> Successfully clicked painting! Distance: " + Vector3.Distance(mainCam.transform.position, hit.point).ToString("F1") + "m");
                 InspectPainting();
+                return;
             }
         }
     }
@@ -536,6 +538,13 @@ public class PaintingClickTrigger : MonoBehaviour
 
     private void OnMouseDown()
     {
-        // The parent manager handles the swipe gesture and dust progress.
+        if (parentPainting != null)
+        {
+            parentPainting.InspectPainting();
+        }
+        else if (Room3MemoryPainting.Instance != null)
+        {
+            Room3MemoryPainting.Instance.InspectPainting();
+        }
     }
 }

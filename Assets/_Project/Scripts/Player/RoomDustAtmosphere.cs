@@ -153,6 +153,11 @@ public class RoomDustAtmosphere : MonoBehaviour
     public static bool IsRoomCompletedOrWon()
     {
         string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        if (sceneName == "Room3")
+        {
+            // Room 3 always maintains its gentle atmospheric dust and soft dimming
+            return false;
+        }
         if (sceneName == "Room2")
         {
             return PlayerPrefs.GetInt("Room2_Task_roof", 0) == 1 ||
@@ -242,6 +247,40 @@ public class RoomDustAtmosphere : MonoBehaviour
     {
         string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
 
+        if (sceneName == "Room3")
+        {
+            // غرفة 3: تعتيم إضافي متناسق وجميل مع غبرة جوية واضحة
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+            RenderSettings.ambientIntensity = 0.18f;
+            RenderSettings.ambientLight = new Color(0.14f, 0.15f, 0.20f);
+
+            Light[] room3Lights = FindObjectsByType<Light>();
+            foreach (Light l in room3Lights)
+            {
+                if (l.type == LightType.Directional)
+                {
+                    l.intensity = 0.22f;
+                }
+                else if (l.type == LightType.Point)
+                {
+                    l.intensity = 0.32f;
+                }
+                else if (l.type == LightType.Spot)
+                {
+                    l.intensity = 0.30f;
+                }
+            }
+
+            if (ps != null)
+            {
+                if (!ps.isPlaying) ps.Play();
+                var em = ps.emission;
+                em.enabled = true;
+                em.rateOverTime = 25f;
+            }
+            return;
+        }
+
         bool trashDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("trash")) 
                          || PlayerPrefs.GetInt($"{sceneName}_Task_trash", 0) == 1;
 
@@ -304,26 +343,62 @@ public class RoomDustAtmosphere : MonoBehaviour
 
         int completedSteps = (trashDone ? 1 : 0) + (dustDone ? 1 : 0) + (candleDone ? 1 : 0) + (chestOrKeyDone ? 1 : 0);
         float stepProgress = room2Steps >= 0 ? room2Steps / 5f : (float)completedSteps / 4f;
-        if (room2Steps >= 0) SetRoom2Overlay(Mathf.Lerp(0.78f, 0.35f, stepProgress));
+        if (room2Steps >= 0) SetRoom2Overlay(Mathf.Lerp(0.50f, 0.15f, stepProgress));
 
         // أثناء حل الألغاز: يخف التعتيم شوية صغيرة فقط، وتبقى الغرفة معتمة حتى فتح الباب
         // من 0.04f إلى 0.16f كحد أقصى (تخفيف طفيف للغموض مع وضوح الألغاز)
         float targetAmbientIntensity = Mathf.Lerp(0.04f, 0.16f, stepProgress);
         Color targetAmbientColor = Color.Lerp(new Color(0.02f, 0.03f, 0.05f), new Color(0.12f, 0.13f, 0.16f), stepProgress);
         bool isRoom2 = room2Steps >= 0;
+        bool isRoom3 = (sceneName == "Room3");
+
+        if (isRoom3)
+        {
+            // غرفة 3: تعتيم خفيف وناعم جداً مع غبرة جوية هادئة بحيث تكون كل تفاصيل الألغاز واضحة
+            targetAmbientIntensity = 0.55f;
+            targetAmbientColor = new Color(0.40f, 0.40f, 0.45f);
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+            RenderSettings.ambientIntensity = targetAmbientIntensity;
+            RenderSettings.ambientLight = targetAmbientColor;
+
+            Light[] room3Lights = FindObjectsByType<Light>();
+            foreach (Light l in room3Lights)
+            {
+                if (l.type == LightType.Directional)
+                {
+                    l.intensity = 0.65f;
+                }
+                else if (l.type == LightType.Point)
+                {
+                    l.intensity = 0.85f;
+                }
+                else if (l.type == LightType.Spot)
+                {
+                    l.intensity = 0.80f;
+                }
+            }
+
+            if (ps != null)
+            {
+                var em = ps.emission;
+                em.rateOverTime = 18f; // غبرة خفيفة وجميلة
+            }
+            return;
+        }
+
         if (isRoom2)
         {
-            // غرفة 2: عتمة أكثر بكثير
-            targetAmbientIntensity = Mathf.Lerp(0.0f, 0.05f, stepProgress);
-            targetAmbientColor = Color.Lerp(new Color(0.005f, 0.008f, 0.015f), new Color(0.04f, 0.045f, 0.06f), stepProgress);
-            RenderSettings.reflectionIntensity = Mathf.Lerp(0.0f, 0.1f, stepProgress);
+            // غرفة 2: تعتيم متوازن (أغمق قليلاً مع وضوح الأغراض)
+            targetAmbientIntensity = Mathf.Lerp(0.08f, 0.25f, stepProgress);
+            targetAmbientColor = Color.Lerp(new Color(0.06f, 0.07f, 0.10f), new Color(0.18f, 0.19f, 0.24f), stepProgress);
+            RenderSettings.reflectionIntensity = Mathf.Lerp(0.05f, 0.2f, stepProgress);
         }
 
         RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
         RenderSettings.ambientIntensity = targetAmbientIntensity;
         RenderSettings.ambientLight = targetAmbientColor;
 
-        float targetDirIntensity = isRoom2 ? Mathf.Lerp(0.0f, 0.04f, stepProgress) : Mathf.Lerp(0.05f, 0.18f, stepProgress);
+        float targetDirIntensity = isRoom2 ? Mathf.Lerp(0.10f, 0.30f, stepProgress) : Mathf.Lerp(0.05f, 0.18f, stepProgress);
 
         Light[] lights = FindObjectsByType<Light>();
         foreach (Light l in lights)
@@ -340,12 +415,12 @@ public class RoomDustAtmosphere : MonoBehaviour
                 }
                 else
                 {
-                    l.intensity = isRoom2 ? Mathf.Lerp(0.01f, 0.06f, stepProgress) : Mathf.Lerp(0.06f, 0.20f, stepProgress);
+                    l.intensity = isRoom2 ? Mathf.Lerp(0.10f, 0.35f, stepProgress) : Mathf.Lerp(0.06f, 0.20f, stepProgress);
                 }
             }
             else if (isRoom2 && l.type == LightType.Spot)
             {
-                l.intensity = Mathf.Lerp(0.02f, 0.1f, stepProgress);
+                l.intensity = Mathf.Lerp(0.12f, 0.40f, stepProgress);
             }
         }
 

@@ -37,6 +37,24 @@ public class KeyPickup : MonoBehaviour
     private void Start()
     {
         EnsureColliders();
+
+        bool clockSolved = PlayerPrefs.GetInt("Room3_ClockSolved", 0) == 1 
+                        || PlayerPrefs.GetInt("Room3_Task_clock_hand", 0) == 1;
+
+        bool keyDone = PlayerPrefs.GetInt("Room3_Task_key", 0) == 1
+                    || PlayerPrefs.GetInt("HasItem_GoldenKey", 0) == 1
+                    || PlayerPrefs.GetInt("HasItem_Room3Key", 0) == 1;
+
+        if (keyDone)
+        {
+            isCollected = true;
+            gameObject.SetActive(false);
+        }
+        else if (!clockSolved)
+        {
+            // المفتاح مخفي تماماً داخل الخزانة حتى تضبط الساعة على 8:15 وتختفي الساعة وتفتح الخزانة
+            gameObject.SetActive(false);
+        }
     }
 
     private void EnsureColliders()
@@ -174,9 +192,10 @@ public class KeyPickup : MonoBehaviour
 
         LevelProgressGuide.ReportTask("key");
 
-        Debug.Log($"<color=gold>[KeyPickup]:</color> تم التقاط المفتاح ({itemID}) وحفظه في الحقيبة بنجاح!");
+        // إخفاء مجسم المفتاح من الغرفة ومؤشره
+        GameObject ind = GameObject.Find("GoldenKey_Indicator");
+        if (ind != null) Destroy(ind);
 
-        // إخفاء مجسم المفتاح من الغرفة
         gameObject.SetActive(false);
     }
 }

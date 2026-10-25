@@ -150,9 +150,9 @@ public class ChestDialLock : MonoBehaviour
 
     private void HandleChestClick()
     {
+        // إذا كان الصندوق مفتوحاً بالفعل وتم حل اللغز، يمكن أخذ المفتاح
         if (isUnlocked)
         {
-            // إذا كان الصندوق مفتوحاً والمفتاح لم يؤخذ بعد، يتم إعطاء المفتاح أو التقاطه فوراً
             string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
             bool keyDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("key"))
                            || PlayerPrefs.GetInt($"{sceneName}_Task_key", 0) == 1;
@@ -164,13 +164,13 @@ public class ChestDialLock : MonoBehaviour
                 {
                     keyComp.gameObject.SetActive(true);
                     keyComp.PickupKey();
-                    gameObject.SetActive(false);
                     return;
                 }
             }
             return;
         }
 
+        // فتح لوحة إدخال الأرقام السرية للصندوق مباشرة ليستمتع اللاعب بحل اللغز
         OpenLockPanel();
     }
 
@@ -178,50 +178,16 @@ public class ChestDialLock : MonoBehaviour
     {
         if (isUnlocked) return;
 
-        // الفحص المباشر: هل تم جمع الكودين معاً (كود الكتاب 739 وكود الشمعة/الجدار 4729)؟
-        if (requireItemsCollected)
-        {
-            string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-            bool bookTaskDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("dust"))
-                                || PlayerPrefs.GetInt($"{sceneName}_Task_dust", 0) == 1;
-
-            bool candleTaskDone = (LevelProgressGuide.Instance != null && LevelProgressGuide.Instance.IsTaskDone("candle"))
-                                  || PlayerPrefs.GetInt($"{sceneName}_Task_candle", 0) == 1;
-
-            bool hasBook = bookTaskDone || (InventoryManager.Instance != null && (
-                           InventoryManager.Instance.HasItem("SecretBook") ||
-                           InventoryManager.Instance.HasItem("Book") ||
-                           InventoryManager.Instance.HasItem("book") ||
-                           InventoryManager.Instance.HasItem("CleanBook")));
-
-            bool hasCode = candleTaskDone || (InventoryManager.Instance != null && (
-                           InventoryManager.Instance.HasItem("SecretCode") ||
-                           InventoryManager.Instance.HasItem("code") ||
-                           InventoryManager.Instance.HasItem("CandleCode") ||
-                           InventoryManager.Instance.HasItem("CandlePuzzle")));
-
-            // يمنع فتح الصندوق أو التفاعل معه تماماً إذا لم يجمع اللاعب الكودين معاً!
-            if (!hasBook || !hasCode)
-            {
-                ProceduralAudioGenerator.PlaySound("locked", 0.8f);
-                return;
-            }
-        }
-
-        // فتح لوحة الأرقام الدوارة فوراً
         if (lockUIPanel != null)
         {
             lockUIPanel.SetActive(true);
             StyleAndEnhanceLockUI();
 
-            // وضع لوحة الصندوق في المنتصف المائل لليسار قليلاً حتى لا تغطي على ورقة الكود
             RectTransform rt = lockUIPanel.GetComponent<RectTransform>();
             if (rt != null)
             {
                 rt.anchoredPosition = new Vector2(-120f, -20f);
             }
-
-            CheckCode();
         }
     }
 

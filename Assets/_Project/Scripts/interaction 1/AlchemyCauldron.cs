@@ -36,6 +36,17 @@ public class AlchemyCauldron : MonoBehaviour
 
     private void Start()
     {
+        bool alchemyAlreadyDone = PlayerPrefs.GetInt("Room2_Task_alchemy", 0) == 1 ||
+                                  PlayerPrefs.GetInt("HasItem_AcidPotion", 0) == 1 ||
+                                  (InventoryManager.Instance != null && InventoryManager.Instance.HasItem(resultItemID)) ||
+                                  PlayerPrefs.GetInt("Room2_Task_water", 0) == 1;
+
+        if (alchemyAlreadyDone)
+        {
+            gameObject.SetActive(false);
+            return;
+        }
+
         // إخفاء السائل في البداية ليكون الوعاء فارغاً تماماً
         if (liquidObject != null)
         {
@@ -122,7 +133,7 @@ public class AlchemyCauldron : MonoBehaviour
 
             currentIngredientIndex++;
 
-            // عند اكتمال إضافة المكونين
+            // عند اكتمال إضافة المكونين (الماء والعشبة)
             if (currentIngredientIndex >= orderedIngredients.Count)
             {
                 OnRecipeCompleted();
@@ -183,7 +194,18 @@ public class AlchemyCauldron : MonoBehaviour
         if (craftParticles != null) craftParticles.Play();
         if (audioSource && successSound) audioSource.PlayOneShot(successSound);
 
-        Debug.Log("<color=green>[الوعاء]:</color> الخلطة اكتملت! اضغطي الآن على الوعاء لأخذ الجرعة.");
+        Debug.Log("<color=green>[الوعاء]:</color> الخلطة اكتملت! تشغيل فيديو خلط العشبة والماء...");
+
+        // تشغيل فيديو خلط العشبة والماء في الصحن فور اكتمال الخلط
+        if (UniversalVideoPlayer.Instance != null)
+        {
+            UniversalVideoPlayer.Instance.PlayHerbVideo();
+        }
+        else
+        {
+            var uvp = FindAnyObjectByType<UniversalVideoPlayer>();
+            if (uvp != null) uvp.PlayHerbVideo();
+        }
     }
 
     private void CollectFinishedPotion()
@@ -199,6 +221,8 @@ public class AlchemyCauldron : MonoBehaviour
         if (added)
         {
             Debug.Log("<color=green>[الوعاء]:</color> تم أخذ الجرعة وتخزينها في الحقيبة بنجاح!");
+            PlayerPrefs.SetInt("HasItem_AcidPotion", 1);
+            PlayerPrefs.Save();
             LevelProgressGuide.ReportTask("alchemy");
             // إخفاء الوعاء فوراً من الطاولة
             gameObject.SetActive(false);

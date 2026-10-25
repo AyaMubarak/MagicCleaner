@@ -34,11 +34,21 @@ public class InventoryManager : MonoBehaviour
 
     private Coroutine hideCoroutine;
     private bool isManuallyOpen = false;
+    private int lastToggleFrame = -1;
 
     private void Awake()
     {
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
+    }
+
+    private void Update()
+    {
+        // Support pressing 'B' or 'I' on keyboard to toggle bag as well
+        if (Input.GetKeyDown(KeyCode.B) || Input.GetKeyDown(KeyCode.I))
+        {
+            ToggleInventory();
+        }
     }
 
     private void Start()
@@ -101,10 +111,23 @@ public class InventoryManager : MonoBehaviour
         GameObject bagObject = GameObject.Find("Inventory_Toggle_Button") ?? GameObject.Find("BagButton");
         if (bagObject == null) return;
 
-        Button bagButton = bagObject.GetComponent<Button>();
-        if (bagButton == null) return;
+        // وضع زر الحقيبة في أعلى طبقة بالكانفاس
+        bagObject.transform.SetAsLastSibling();
 
-        bagButton.onClick.RemoveListener(ToggleInventory);
+        Image img = bagObject.GetComponent<Image>();
+        if (img != null)
+        {
+            img.raycastTarget = true;
+        }
+
+        Button bagButton = bagObject.GetComponent<Button>();
+        if (bagButton == null)
+        {
+            bagButton = bagObject.AddComponent<Button>();
+        }
+
+        bagButton.interactable = true;
+        bagButton.onClick.RemoveAllListeners();
         bagButton.onClick.AddListener(ToggleInventory);
     }
 
@@ -553,7 +576,45 @@ public class InventoryManager : MonoBehaviour
                 }
             }
         }
-        // Room2 تحتفظ بأدواتها الخاصة (الجرعات والمكونات) عبر السلسلة الخاصة بها Room2_SavedInventory_ItemIDs
+        else if (sceneName == "Room2")
+        {
+            bool herbCollected = PlayerPrefs.GetInt("Room2_Task_herb", 0) == 1
+                                 || PlayerPrefs.GetInt("HasItem_Herb", 0) == 1;
+
+            bool flaskCollected = PlayerPrefs.GetInt("Room2_Task_flask", 0) == 1
+                                  || PlayerPrefs.GetInt("HasItem_WaterFlask", 0) == 1;
+
+            bool alchemyDone = PlayerPrefs.GetInt("Room2_Task_alchemy", 0) == 1
+                               || PlayerPrefs.GetInt("HasItem_AcidPotion", 0) == 1;
+
+            bool plantWatered = PlayerPrefs.GetInt("Room2_Task_water", 0) == 1;
+
+            bool keyCollected = PlayerPrefs.GetInt("Room2_Task_key", 0) == 1
+                                || PlayerPrefs.GetInt("HasItem_ExitKey", 0) == 1;
+
+            bool roofDone = PlayerPrefs.GetInt("Room2_Task_roof", 0) == 1
+                            || PlayerPrefs.GetInt("Room2_Done", 0) == 1;
+
+            if (herbCollected && !alchemyDone && !HasItem("Herb"))
+            {
+                inventoryItems.Add(new InventoryEntry { id = "Herb", icon = GetMortarSprite() });
+            }
+
+            if (flaskCollected && !alchemyDone && !HasItem("WaterFlask"))
+            {
+                inventoryItems.Add(new InventoryEntry { id = "WaterFlask", icon = GetBottleSprite() });
+            }
+
+            if (alchemyDone && !plantWatered && !HasItem("AcidPotion"))
+            {
+                inventoryItems.Add(new InventoryEntry { id = "AcidPotion", icon = GetPotionSprite() });
+            }
+
+            if (keyCollected && !roofDone && !HasItem("ExitKey") && !HasItem("key"))
+            {
+                inventoryItems.Add(new InventoryEntry { id = "ExitKey", icon = GetKeySprite() });
+            }
+        }
 
         ValidateAndRefreshIcons();
         SaveInventoryToDisk();
@@ -576,6 +637,10 @@ public class InventoryManager : MonoBehaviour
         PlayerPrefs.DeleteKey("HasItem_ChestKey");
         PlayerPrefs.DeleteKey("HasItem_MemoryPainting");
         PlayerPrefs.DeleteKey("HasItem_ClockHand");
+        PlayerPrefs.DeleteKey("HasItem_Herb");
+        PlayerPrefs.DeleteKey("HasItem_WaterFlask");
+        PlayerPrefs.DeleteKey("HasItem_AcidPotion");
+        PlayerPrefs.DeleteKey("HasItem_ExitKey");
         PlayerPrefs.Save();
         if (Instance != null)
         {
@@ -587,7 +652,13 @@ public class InventoryManager : MonoBehaviour
 
     public bool HasItem(string itemName)
     {
-        return inventoryItems.Exists(x => x.id.Equals(itemName, System.StringComparison.OrdinalIgnoreCase));
+        if (string.IsNullOrEmpty(itemName)) return false;
+        bool exists = inventoryItems.Exists(x => x.id.Equals(itemName, System.StringComparison.OrdinalIgnoreCase));
+        if (!exists && itemName.IndexOf("key", System.StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            exists = inventoryItems.Exists(x => x.id.IndexOf("key", System.StringComparison.OrdinalIgnoreCase) >= 0);
+        }
+        return exists;
     }
 
     public void ClearSelection()
@@ -597,6 +668,10 @@ public class InventoryManager : MonoBehaviour
 
     public void ToggleInventory()
     {
+        // Prevent double execution in the exact same frame (e.g. from both Unity Inspector onClick and runtime AddListener)
+        if (Time.frameCount == lastToggleFrame) return;
+        lastToggleFrame = Time.frameCount;
+
         if (hideCoroutine != null)
         {
             StopCoroutine(hideCoroutine);
@@ -610,16 +685,39 @@ public class InventoryManager : MonoBehaviour
             ForceRefreshUI();
         }
         SetInventoryVisible(isManuallyOpen);
+        ProceduralAudioGenerator.PlaySound("ui_click", 0.65f);
     }
 
     public void SetInventoryVisible(bool visible)
     {
+        if (inventoryCanvasGroup == null)
+        {
+            inventoryCanvasGroup = GetComponent<CanvasGroup>();
+        }
+
         if (inventoryCanvasGroup != null)
         {
             inventoryCanvasGroup.gameObject.SetActive(true);
             inventoryCanvasGroup.alpha = visible ? 1f : 0f;
             inventoryCanvasGroup.blocksRaycasts = visible;
             inventoryCanvasGroup.interactable = visible;
+            if (visible)
+            {
+                inventoryCanvasGroup.transform.SetAsLastSibling();
+
+                // If parent has a Canvas, bring it above other UI or ensure it renders on top
+                Canvas parentCanvas = inventoryCanvasGroup.GetComponentInParent<Canvas>();
+                if (parentCanvas != null && parentCanvas.sortingOrder < 1000)
+                {
+                    parentCanvas.sortingOrder = 1000;
+                }
+            }
+        }
+        else
+        {
+            // Direct gameObject fallback
+            gameObject.SetActive(visible);
+            if (visible) transform.SetAsLastSibling();
         }
     }
 
@@ -681,18 +779,24 @@ public class InventoryManager : MonoBehaviour
     public void RemoveItem(string itemName)
     {
         int index = inventoryItems.FindIndex(x => x.id.Equals(itemName, System.StringComparison.OrdinalIgnoreCase));
+        if (index == -1 && !string.IsNullOrEmpty(itemName) && itemName.IndexOf("key", System.StringComparison.OrdinalIgnoreCase) >= 0)
+        {
+            index = inventoryItems.FindIndex(x => x.id.IndexOf("key", System.StringComparison.OrdinalIgnoreCase) >= 0);
+        }
 
         if (index != -1)
         {
+            string removedId = inventoryItems[index].id;
             inventoryItems.RemoveAt(index);
             persistentItems = new List<InventoryEntry>(inventoryItems);
             SaveInventoryToDisk();
-            if (SelectedItem.Equals(itemName, System.StringComparison.OrdinalIgnoreCase))
+            if (SelectedItem.Equals(itemName, System.StringComparison.OrdinalIgnoreCase) ||
+                SelectedItem.Equals(removedId, System.StringComparison.OrdinalIgnoreCase))
             {
                 ClearSelection();
             }
 
-            Debug.Log("<color=red>[الحقيبة]:</color> تم حذف العنصر بنجاح: " + itemName);
+            Debug.Log("<color=red>[الحقيبة]:</color> تم حذف العنصر بنجاح: " + removedId);
 
             ForceRefreshUI();
             ShowInventoryTemporarily();

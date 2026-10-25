@@ -914,6 +914,7 @@ public class LevelProgressGuide : MonoBehaviour
         GameObject bagBtn = GameObject.Find("Inventory_Toggle_Button") ?? GameObject.Find("BagButton");
         if (bagBtn != null && guideCanvas != null)
         {
+            // وضعه داخل guideCanvas بجانب زر الـ Back مباشرة بنفس المقياس
             bagBtn.transform.SetParent(guideCanvas.transform, false);
 
             RectTransform rt = bagBtn.GetComponent<RectTransform>();
@@ -922,12 +923,31 @@ public class LevelProgressGuide : MonoBehaviour
                 rt.anchorMin = new Vector2(0f, 1f);
                 rt.anchorMax = new Vector2(0f, 1f);
                 rt.pivot = new Vector2(0f, 1f);
-                // زر الرجوع يبدأ من x=50 وعرضه 140 (ينتهي عند x=190). زر الحقيبة يستقر بجانبه بوضوح عند x=215
-                rt.anchoredPosition = new Vector2(215f, -41f);
+                // زر الـ Back يبدأ عند x=50 وعرضه 140 (ينتهي عند x=190). الحقيبة توضع بجانبه مباشرة عند x=205
+                rt.anchoredPosition = new Vector2(205f, -40f);
                 rt.sizeDelta = new Vector2(65f, 65f);
                 rt.localScale = Vector3.one;
-                bagRepositioned = true;
             }
+
+            // التأكد من استجابة النقرات
+            UnityEngine.UI.Image img = bagBtn.GetComponent<UnityEngine.UI.Image>();
+            if (img != null) img.raycastTarget = true;
+
+            UnityEngine.UI.Button btn = bagBtn.GetComponent<UnityEngine.UI.Button>();
+            if (btn != null)
+            {
+                btn.interactable = true;
+                btn.onClick.RemoveAllListeners();
+                btn.onClick.AddListener(() =>
+                {
+                    if (InventoryManager.Instance != null)
+                    {
+                        InventoryManager.Instance.ToggleInventory();
+                    }
+                });
+            }
+
+            bagRepositioned = true;
         }
     }
 }

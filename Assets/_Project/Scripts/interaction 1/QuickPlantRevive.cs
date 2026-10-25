@@ -25,6 +25,29 @@ public class QuickPlantRevive : MonoBehaviour
 
     private void Start()
     {
+        bool waterDone = PlayerPrefs.GetInt("Room2_Task_water", 0) == 1;
+        bool keyDone = PlayerPrefs.GetInt("Room2_Task_key", 0) == 1 ||
+                       (InventoryManager.Instance != null && InventoryManager.Instance.HasItem("ExitKey"));
+
+        if (keyDone)
+        {
+            // تم أخذ المفتاح والنبتة أزيحت مسبقاً: تختفي النبتة والمفتاح
+            puzzleStage = 2;
+            if (wholePlantObject != null) wholePlantObject.SetActive(false);
+            else gameObject.SetActive(false);
+            if (exitKey != null) exitKey.SetActive(false);
+            return;
+        }
+        else if (waterDone)
+        {
+            // تم سقي النبتة وإزاحتها لكشف المفتاح، والمفتاح لم يؤخذ بعد
+            puzzleStage = 2;
+            if (wholePlantObject != null) wholePlantObject.SetActive(false);
+            else gameObject.SetActive(false);
+            if (exitKey != null) exitKey.SetActive(true);
+            return;
+        }
+
         // 1. إخفاء المفتاح في البداية
         if (exitKey != null)
         {

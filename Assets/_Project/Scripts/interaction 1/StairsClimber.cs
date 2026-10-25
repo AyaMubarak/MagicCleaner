@@ -91,15 +91,28 @@ public class StairsClimber : MonoBehaviour
     {
         if (!PlayerHasKey())
         {
-            Debug.LogWarning("<color=orange>[السطح]:</color> حددي المفتاح من الحقيبة أولاً!");
+            Debug.LogWarning("<color=orange>[السطح]:</color> يجب جمع المفتاح أولاً!");
             return;
         }
 
-        // حذف المفتاح والانتقال
+        // إحالة العملية لـ RoofExitTrigger ليعرض الاحتفال والبانر وحفظ إكمال المرحلة
+        RoofExitTrigger roofTrigger = FindAnyObjectByType<RoofExitTrigger>();
+        if (roofTrigger != null)
+        {
+            roofTrigger.TryExit();
+            return;
+        }
+
+        // حذف المفتاح والانتقال إذا لم يتوفر السكربت الآخر
         if (InventoryManager.Instance != null && InventoryManager.Instance.HasItem(requiredKeyID))
         {
             InventoryManager.Instance.RemoveItem(requiredKeyID);
         }
+
+        PlayerPrefs.SetInt("Room2_Done", 1);
+        LevelProgressGuide.ReportTask("roof");
+        PlayerPrefs.SetInt("OpenLevelsDirectly", 1);
+        PlayerPrefs.Save();
 
         Debug.Log("<color=green>[السطح]:</color> مبروك! جاري الانتقال إلى المشهد التالي: " + nextSceneName);
         SceneManager.LoadScene(nextSceneName);
@@ -107,11 +120,13 @@ public class StairsClimber : MonoBehaviour
 
     private bool PlayerHasKey()
     {
+        if (PlayerPrefs.GetInt("Room2_Task_key", 0) == 1) return true;
         if (InventoryManager.Instance == null) return true;
 
-        bool hasInBag = InventoryManager.Instance.HasItem(requiredKeyID);
+        bool hasInBag = InventoryManager.Instance.HasItem(requiredKeyID) || InventoryManager.Instance.HasItem("key");
         bool isSelected = !string.IsNullOrEmpty(InventoryManager.Instance.SelectedItem) &&
-                          InventoryManager.Instance.SelectedItem.Trim().Equals(requiredKeyID.Trim(), System.StringComparison.OrdinalIgnoreCase);
+                          (InventoryManager.Instance.SelectedItem.Trim().Equals(requiredKeyID.Trim(), System.StringComparison.OrdinalIgnoreCase) ||
+                           InventoryManager.Instance.SelectedItem.IndexOf("key", System.StringComparison.OrdinalIgnoreCase) >= 0);
 
         return hasInBag || isSelected;
     }

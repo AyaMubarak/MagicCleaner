@@ -11,6 +11,7 @@ public class DustCleaner : MonoBehaviour, IDragHandler
     [SerializeField] private float cleanSpeed = 0.015f; // سرعة اختفاء الغبار مع كل مسحة
     private float currentAlpha = 1f;
     private bool isCleaned = false;
+    private float lastWipeSoundTime = 0f;
 
     [Header("Book Inventory Reward")]
     [SerializeField] private Sprite bookIcon;          // اسحبي صورة الكتاب هنا لتظهر في الحقيبة
@@ -114,6 +115,13 @@ public class DustCleaner : MonoBehaviour, IDragHandler
 
         // تقليل الشفافية تدريجياً مع المسح
         currentAlpha -= cleanSpeed;
+
+        // تشغيل صوت مسح الغبار الحسي (Dust Wipe SFX) بشكل إيقاعي لطيف مع الحركة
+        if (Time.time - lastWipeSoundTime > 0.16f)
+        {
+            lastWipeSoundTime = Time.time;
+            ProceduralAudioGenerator.PlaySound("dust_wipe", 0.65f);
+        }
 
         Color c = dustImage.color;
         c.a = Mathf.Clamp01(currentAlpha);
