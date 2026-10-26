@@ -158,7 +158,10 @@ public class LevelsMenuManager : MonoBehaviour
         }
         else
         {
-            // أنهى جميع المراحل، يبدأ من المرحلة الأولى أو الأخيرة
+            // أنهى جميع المراحل، يقوم بتصفير تقدم اللعبة بالكامل لبدء اللعبة من جديد بنظافة
+            ResetSceneData(room1SceneName);
+            ResetSceneData(room2SceneName);
+            ResetSceneData(room3SceneName);
             targetScene = room1SceneName;
         }
 
@@ -595,7 +598,7 @@ public class LevelsMenuManager : MonoBehaviour
         }
     }
 
-    private void ResetSceneData(string sceneName)
+    public void ResetSceneData(string sceneName)
     {
         if (string.IsNullOrEmpty(sceneName)) return;
 

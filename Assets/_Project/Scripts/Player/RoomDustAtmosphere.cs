@@ -330,9 +330,10 @@ public class RoomDustAtmosphere : MonoBehaviour
         int completedSteps = (trashDone ? 1 : 0) + (dustDone ? 1 : 0) + (candleDone ? 1 : 0) + (chestOrKeyDone ? 1 : 0);
         float stepProgress = roomSteps >= 0 ? (float)roomSteps / totalRoomSteps : (float)completedSteps / 4f;
 
+        // تعديل Room 2: جعل طبقة السواد أخف وتتلاشى تماماً مع التقدم في المهام
         if (sceneName == "Room2")
         {
-            SetRoom2Overlay(Mathf.Lerp(0.55f, 0.15f, stepProgress));
+            SetRoom2Overlay(Mathf.Lerp(0.35f, 0.0f, stepProgress));
         }
         else
         {
@@ -356,11 +357,11 @@ public class RoomDustAtmosphere : MonoBehaviour
         }
         else if (isRoom2)
         {
-            // غرفة 2 أثناء اللعب: تعتيم متوازن من بداية المرحلة
-            targetAmbientIntensity = Mathf.Lerp(0.06f, 0.22f, stepProgress);
-            targetAmbientColor = Color.Lerp(new Color(0.04f, 0.05f, 0.08f), new Color(0.16f, 0.17f, 0.22f), stepProgress);
-            targetDirIntensity = Mathf.Lerp(0.08f, 0.28f, stepProgress);
-            RenderSettings.reflectionIntensity = Mathf.Lerp(0.05f, 0.2f, stepProgress);
+            // غرفة 2 أثناء اللعب: تفتيح تدريجي ملحوظ ومريح للنظر مع إنجاز المهام
+            targetAmbientIntensity = Mathf.Lerp(0.12f, 0.42f, stepProgress);
+            targetAmbientColor = Color.Lerp(new Color(0.08f, 0.09f, 0.14f), new Color(0.28f, 0.30f, 0.36f), stepProgress);
+            targetDirIntensity = Mathf.Lerp(0.15f, 0.55f, stepProgress);
+            RenderSettings.reflectionIntensity = Mathf.Lerp(0.10f, 0.40f, stepProgress);
         }
         else
         {
@@ -389,12 +390,14 @@ public class RoomDustAtmosphere : MonoBehaviour
                 }
                 else
                 {
-                    l.intensity = (isRoom2 || isRoom3) ? Mathf.Lerp(0.12f, 0.45f, stepProgress) : Mathf.Lerp(0.06f, 0.20f, stepProgress);
+                    l.intensity = isRoom2 ? Mathf.Lerp(0.20f, 0.70f, stepProgress) 
+                                : isRoom3 ? Mathf.Lerp(0.12f, 0.45f, stepProgress) 
+                                : Mathf.Lerp(0.06f, 0.20f, stepProgress);
                 }
             }
             else if (l.type == LightType.Spot)
             {
-                l.intensity = Mathf.Lerp(0.15f, 0.45f, stepProgress);
+                l.intensity = isRoom2 ? Mathf.Lerp(0.25f, 0.65f, stepProgress) : Mathf.Lerp(0.15f, 0.45f, stepProgress);
             }
         }
 
@@ -411,7 +414,8 @@ public class RoomDustAtmosphere : MonoBehaviour
     /// <summary>Room2 only: dark screen overlay beneath all UI. alpha &lt; 0 removes it.</summary>
     private static void SetRoom2Overlay(float alpha)
     {
-        if (alpha < 0f)
+        // إذا قلّت الشفافية عن حد التلاشي يتم حذف الكائن نهائياً ليصبح المشهد صافياً
+        if (alpha <= 0.01f)
         {
             if (room2Overlay != null) Object.Destroy(room2Overlay);
             room2Overlay = null; room2OverlayImg = null;

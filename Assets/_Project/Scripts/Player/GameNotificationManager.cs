@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 #if UNITY_ANDROID
 using Unity.Notifications.Android;
+using UnityEngine.Android;
 #endif
 
 public class GameNotificationManager : MonoBehaviour
@@ -12,24 +13,60 @@ public class GameNotificationManager : MonoBehaviour
 
     void Start()
     {
-        #if UNITY_ANDROID
-        // إنشاء قناة الإشعارات (مطلوبة لأندرويد 8 وأحدث)
-        var channel = new AndroidNotificationChannel()
-        {
-            Id = ChannelId,
-            Name = "Game Reminders",
-            Importance = Importance.High,
-            Description = "Notifications to return to the game",
-        };
-        AndroidNotificationCenter.RegisterNotificationChannel(channel);
-        #endif
+        AutoFindSlider();
+        RequestNotificationPermission();
+        SetupNotificationChannel();
 
         int isEnabled = PlayerPrefs.GetInt("NotificationsEnabled", 1);
         if (notificationSlider != null)
         {
             notificationSlider.value = isEnabled;
+            notificationSlider.onValueChanged.RemoveListener(OnSwitchChanged);
             notificationSlider.onValueChanged.AddListener(OnSwitchChanged);
         }
+    }
+
+    private void AutoFindSlider()
+    {
+        if (notificationSlider == null)
+        {
+            Slider[] allSliders = Resources.FindObjectsOfTypeAll<Slider>();
+            foreach (var s in allSliders)
+            {
+                if (s != null && s.gameObject.name.IndexOf("Notification", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    notificationSlider = s;
+                    break;
+                }
+            }
+        }
+    }
+
+    public void RequestNotificationPermission()
+    {
+#if UNITY_ANDROID
+        // طلب إذن الإشعارات لأجهزة Android 13 وأحدث (POST_NOTIFICATIONS)
+        if (!Permission.HasUserAuthorizedPermission("android.permission.POST_NOTIFICATIONS"))
+        {
+            Permission.RequestUserPermission("android.permission.POST_NOTIFICATIONS");
+        }
+#endif
+    }
+
+    private void SetupNotificationChannel()
+    {
+#if UNITY_ANDROID
+        var channel = new AndroidNotificationChannel()
+        {
+            Id = ChannelId,
+            Name = "Magic Cleaner Reminders",
+            Importance = Importance.High,
+            Description = "Notifications and hints to return to the game",
+            EnableVibration = true,
+            CanShowBadge = true
+        };
+        AndroidNotificationCenter.RegisterNotificationChannel(channel);
+#endif
     }
 
     public void OnSwitchChanged(float value)
@@ -38,12 +75,25 @@ public class GameNotificationManager : MonoBehaviour
         PlayerPrefs.SetInt("NotificationsEnabled", state);
         PlayerPrefs.Save();
 
-        #if UNITY_ANDROID
-        if (state == 0)
+        // اهتزاز خفيف ليعطي ردة فعل ملموسة للاعب على التلفون
+        #if UNITY_ANDROID || UNITY_IOS
+        Handheld.Vibrate();
+        #endif
+
+#if UNITY_ANDROID
+        if (state == 1)
+        {
+            RequestNotificationPermission();
+
+            // إرسال إشعار تأكيدي فوري بعد 5 ثوانٍ عند تفعيل المفتاح ليشاهد اللاعب ردة الفعل على هاتفه
+            ScheduleTestFeedbackNotification();
+        }
+        else
         {
             AndroidNotificationCenter.CancelAllNotifications();
         }
-        #endif
+#endif
+        Debug.Log($"[GameNotificationManager] Notification state changed to: {state}");
     }
 
     void OnApplicationPause(bool pauseStatus)
@@ -54,21 +104,46 @@ public class GameNotificationManager : MonoBehaviour
         }
     }
 
+    private void ScheduleTestFeedbackNotification()
+    {
+#if UNITY_ANDROID
+        try
+        {
+            var testNotification = new AndroidNotification
+            {
+                Title = "Magic Cleaner ✨",
+                Text = "Notifications activated! We will notify you with magical secrets.",
+                FireTime = DateTime.Now.AddSeconds(5)
+            };
+            AndroidNotificationCenter.SendNotification(testNotification, ChannelId);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[GameNotificationManager] Test notification: {ex.Message}");
+        }
+#endif
+    }
+
     private void ScheduleReturnNotification()
     {
-        #if UNITY_ANDROID
-        AndroidNotificationCenter.CancelAllNotifications();
-
-        var notification = new AndroidNotification
+#if UNITY_ANDROID
+        try
         {
-            Title = "We miss you! ✨",
-            Text = "Mysterious puzzles await you. Return and play now!",
-            FireTime = DateTime.Now.AddDays(1),
-            SmallIcon = "icon_0",
-            LargeIcon = "icon_1"
-        };
+            AndroidNotificationCenter.CancelAllNotifications();
 
-        AndroidNotificationCenter.SendNotification(notification, ChannelId);
-        #endif
+            var notification = new AndroidNotification
+            {
+                Title = "We miss you! ✨",
+                Text = "Mysterious puzzles await you. Return and play now!",
+                FireTime = DateTime.Now.AddHours(24)
+            };
+
+            AndroidNotificationCenter.SendNotification(notification, ChannelId);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogWarning($"[GameNotificationManager] Schedule notification: {ex.Message}");
+        }
+#endif
     }
 }
