@@ -387,7 +387,7 @@ public class DoorExit : MonoBehaviour
         string bannerTitle = (currentScene == "Room3") ? "★ LEVEL 3 COMPLETED! ★" : "★ LEVEL 1 COMPLETED! ★";
 
         GameObject banner = new GameObject("LevelCompleteBanner", typeof(RectTransform));
-        banner.transform.SetParent(canvas.transform, false);
+        banner.transform.SetParent(ResponsiveUI.SafeContent(canvas), false);
         Destroy(banner, 5f);
 
         RectTransform rt = banner.GetComponent<RectTransform>();

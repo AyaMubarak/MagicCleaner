@@ -178,7 +178,7 @@ public class RoofExitTrigger : MonoBehaviour
         if (canvas != null)
         {
             banner = new GameObject("Room2Completion", typeof(RectTransform));
-            banner.transform.SetParent(canvas.transform, false);
+            banner.transform.SetParent(ResponsiveUI.SafeContent(canvas), false);
             banner.transform.SetAsLastSibling();
 
             RectTransform bannerRect = banner.GetComponent<RectTransform>();
@@ -207,7 +207,7 @@ public class RoofExitTrigger : MonoBehaviour
             for (int i = 0; i < 36; i++)
             {
                 GameObject confetti = new GameObject("Confetti", typeof(RectTransform), typeof(Image));
-                confetti.transform.SetParent(canvas.transform, false);
+                confetti.transform.SetParent(ResponsiveUI.SafeContent(canvas), false);
                 RectTransform confettiRect = confetti.GetComponent<RectTransform>();
                 confettiRect.anchorMin = new Vector2(0.5f, 0.5f);
                 confettiRect.anchorMax = new Vector2(0.5f, 0.5f);

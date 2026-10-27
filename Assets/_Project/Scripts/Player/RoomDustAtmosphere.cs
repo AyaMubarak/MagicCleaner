@@ -276,7 +276,7 @@ public class RoomDustAtmosphere : MonoBehaviour
             RenderSettings.ambientIntensity = 1.40f;
             RenderSettings.ambientLight = new Color(1f, 0.98f, 0.92f);
 
-            Light[] allLights = FindObjectsByType<Light>();
+            Light[] allLights = FindObjectsByType<Light>(FindObjectsSortMode.InstanceID);
             foreach (Light l in allLights)
             {
                 if (l.type == LightType.Directional)
@@ -375,7 +375,7 @@ public class RoomDustAtmosphere : MonoBehaviour
         RenderSettings.ambientIntensity = targetAmbientIntensity;
         RenderSettings.ambientLight = targetAmbientColor;
 
-        Light[] lights = FindObjectsByType<Light>();
+        Light[] lights = FindObjectsByType<Light>(FindObjectsSortMode.InstanceID);
         foreach (Light l in lights)
         {
             if (l.type == LightType.Directional)

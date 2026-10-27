@@ -14,11 +14,13 @@ public class CameraController : MonoBehaviour
 
     private Transform currentTargetViewpoint;
     private int currentIndex = 0;
+    private PlayerMovementController playerMovement;
 
     private void Start()
     {
         // نترك الهدف فارغاً حتى لا تُسحب الكاميرا إلى أي إحداثيات قديمة عند تشغيل اللعبة
         currentTargetViewpoint = null;
+        playerMovement = GetComponentInParent<PlayerMovementController>();
     }
 
     private void Update()
@@ -36,6 +38,9 @@ public class CameraController : MonoBehaviour
 
     private void HandleKeyboardInput()
     {
+        // The player already uses these keys to move and turn.
+        if (playerMovement != null && playerMovement.isActiveAndEnabled) return;
+
         if (Input.GetKeyDown(KeyCode.RightArrow) || Input.GetKeyDown(KeyCode.D))
         {
             NextViewpoint();

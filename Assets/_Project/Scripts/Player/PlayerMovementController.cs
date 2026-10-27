@@ -19,14 +19,6 @@ public class PlayerMovementController : MonoBehaviour
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
-        if (controller != null)
-        {
-            // زيادة نصف قطر التصادم للاعب لمنع الكاميرا من الاقتراب الشديد من الجدران واختراقها
-            if (controller.radius < 0.55f)
-            {
-                controller.radius = 0.55f;
-            }
-        }
 
         // ضبط الكاميرا لتجنب اختراق الجدران (Near Clip Plane)
         Camera cam = GetComponentInChildren<Camera>();
@@ -60,6 +52,23 @@ public class PlayerMovementController : MonoBehaviour
     private float cameraPitch = 0f;
     private Vector2 lastLookPos;
     private int lookTouchId = -1;
+    private bool isMouseLooking;
+
+    private void OnDisable()
+    {
+        isMouseLooking = false;
+        lookTouchId = -1;
+        velocity = Vector3.zero;
+    }
+
+    private void OnApplicationFocus(bool hasFocus)
+    {
+        if (!hasFocus)
+        {
+            isMouseLooking = false;
+            lookTouchId = -1;
+        }
+    }
 
     private void Update()
     {
@@ -114,75 +123,52 @@ public class PlayerMovementController : MonoBehaviour
     {
         if (playerCamera == null) playerCamera = Camera.main;
 
-        // دعم الماوس (في الـ Editor أو الكمبيوتر)
+        // A touch can also synthesize mouse input. Process each drag only once.
+        if (Input.touchCount > 0)
+        {
+            isMouseLooking = false;
+            for (int i = 0; i < Input.touchCount; i++)
+            {
+                Touch touch = Input.GetTouch(i);
+                if (touch.phase == TouchPhase.Began && lookTouchId == -1 && CanLookAtPosition(touch.position))
+                    lookTouchId = touch.fingerId;
+
+                if (touch.fingerId != lookTouchId) continue;
+                if (touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled)
+                    lookTouchId = -1;
+                else if (touch.phase == TouchPhase.Moved)
+                    ApplyLookDelta(touch.deltaPosition, 0.15f, 0.13f);
+            }
+            return;
+        }
+
+        lookTouchId = -1;
         if (Input.GetMouseButtonDown(0))
         {
-            if (CanLookAtPosition(Input.mousePosition))
-            {
-                lastLookPos = Input.mousePosition;
-            }
-            else
-            {
-                lastLookPos = Vector2.zero;
-            }
+            isMouseLooking = CanLookAtPosition(Input.mousePosition);
+            lastLookPos = Input.mousePosition;
         }
-        else if (Input.GetMouseButton(0))
+        else if (Input.GetMouseButtonUp(0) || !Input.GetMouseButton(0))
         {
-            if (lastLookPos != Vector2.zero && CanLookAtPosition(Input.mousePosition))
-            {
-                Vector2 currentPos = Input.mousePosition;
-                Vector2 delta = currentPos - lastLookPos;
-                lastLookPos = currentPos;
-
-                if (delta.sqrMagnitude > 0.01f && delta.sqrMagnitude < 2500f)
-                {
-                    transform.Rotate(Vector3.up * (delta.x * 0.16f), Space.World);
-
-                    if (playerCamera != null)
-                    {
-                        cameraPitch = Mathf.Clamp(cameraPitch - delta.y * 0.14f, -40f, 50f);
-                        playerCamera.transform.localRotation = Quaternion.Euler(cameraPitch, 0f, 0f);
-                    }
-                }
-            }
+            isMouseLooking = false;
         }
-        else if (Input.GetMouseButtonUp(0))
+        else if (isMouseLooking)
         {
-            lastLookPos = Vector2.zero;
-        }
-
-        // دعم شاشات اللمس (Mobile Touch)
-        for (int i = 0; i < Input.touchCount; i++)
-        {
-            Touch t = Input.GetTouch(i);
-            if (!CanLookAtPosition(t.position)) continue;
-
-            if (t.phase == TouchPhase.Began && lookTouchId == -1)
-            {
-                lookTouchId = t.fingerId;
-                lastLookPos = t.position;
-            }
-            else if (t.fingerId == lookTouchId)
-            {
-                if (t.phase == TouchPhase.Moved)
-                {
-                    Vector2 delta = t.deltaPosition;
-                    transform.Rotate(Vector3.up * (delta.x * 0.15f), Space.World);
-
-                    if (playerCamera != null)
-                    {
-                        cameraPitch = Mathf.Clamp(cameraPitch - delta.y * 0.13f, -40f, 50f);
-                        playerCamera.transform.localRotation = Quaternion.Euler(cameraPitch, 0f, 0f);
-                    }
-                }
-                else if (t.phase == TouchPhase.Ended || t.phase == TouchPhase.Canceled)
-                {
-                    lookTouchId = -1;
-                }
-            }
+            Vector2 currentPos = Input.mousePosition;
+            Vector2 delta = currentPos - lastLookPos;
+            lastLookPos = currentPos;
+            if (delta.sqrMagnitude > 0.01f && delta.sqrMagnitude < 2500f)
+                ApplyLookDelta(delta, 0.16f, 0.14f);
         }
     }
 
+    private void ApplyLookDelta(Vector2 delta, float yawSensitivity, float pitchSensitivity)
+    {
+        transform.Rotate(Vector3.up * (delta.x * yawSensitivity), Space.World);
+        if (playerCamera == null) return;
+        cameraPitch = Mathf.Clamp(cameraPitch - delta.y * pitchSensitivity, -40f, 50f);
+        playerCamera.transform.localRotation = Quaternion.Euler(cameraPitch, 0f, 0f);
+    }
     private bool CanLookAtPosition(Vector2 screenPos)
     {
         if (IsOverJoystick(screenPos)) return false;

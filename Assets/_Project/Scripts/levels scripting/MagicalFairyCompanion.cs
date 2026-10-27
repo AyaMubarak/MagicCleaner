@@ -40,7 +40,7 @@ public class MagicalFairyCompanion : MonoBehaviour
     public static MagicalFairyCompanion CreateOnCanvas(Canvas canvas, Vector2 restPosition, Sprite customSprite = null)
     {
         GameObject fairyObj = new GameObject("MagicalFairyCompanion");
-        fairyObj.transform.SetParent(canvas.transform, false);
+        fairyObj.transform.SetParent(ResponsiveUI.SafeContent(canvas), false);
 
         RectTransform rt = fairyObj.AddComponent<RectTransform>();
         rt.anchorMin = new Vector2(1f, 1f);

@@ -49,7 +49,7 @@ public class LevelsMenuManager : MonoBehaviour
         if (SceneManager.GetActiveScene().name != "MainMenu") return;
 
         // ربط زر PLAY حتى لو كانت LevelsPanel مخفية (Start لا يعمل على كائن غير مفعّل)
-        LevelsMenuManager[] allManagers = Object.FindObjectsByType<LevelsMenuManager>(FindObjectsInactive.Include);
+        LevelsMenuManager[] allManagers = Object.FindObjectsByType<LevelsMenuManager>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID);
         if (allManagers != null && allManagers.Length > 0)
         {
             allManagers[0].SetupPlayButtonDirectLaunch();
@@ -60,7 +60,7 @@ public class LevelsMenuManager : MonoBehaviour
             PlayerPrefs.DeleteKey("OpenLevelsDirectly");
             PlayerPrefs.Save();
 
-            LevelsMenuManager[] managers = Object.FindObjectsByType<LevelsMenuManager>(FindObjectsInactive.Include);
+            LevelsMenuManager[] managers = Object.FindObjectsByType<LevelsMenuManager>(FindObjectsInactive.Include, FindObjectsSortMode.InstanceID);
             if (managers != null && managers.Length > 0)
             {
                 LevelsMenuManager mgr = managers[0];
@@ -205,19 +205,22 @@ public class LevelsMenuManager : MonoBehaviour
     {
         if (room1Button != null)
         {
-            var txt = room1Button.GetComponentInChildren<TextMeshProUGUI>(true);
+            var status = room1Button.transform.Find("LevelStatus");
+            var txt = status != null ? status.GetComponent<TextMeshProUGUI>() : room1Button.GetComponentInChildren<TextMeshProUGUI>(true);
             if (txt != null) room1Text = txt;
         }
 
         if (room2Button != null)
         {
-            var txt = room2Button.GetComponentInChildren<TextMeshProUGUI>(true);
+            var status = room2Button.transform.Find("LevelStatus");
+            var txt = status != null ? status.GetComponent<TextMeshProUGUI>() : room2Button.GetComponentInChildren<TextMeshProUGUI>(true);
             if (txt != null) room2Text = txt;
         }
 
         if (room3Button != null)
         {
-            var txt = room3Button.GetComponentInChildren<TextMeshProUGUI>(true);
+            var status = room3Button.transform.Find("LevelStatus");
+            var txt = status != null ? status.GetComponent<TextMeshProUGUI>() : room3Button.GetComponentInChildren<TextMeshProUGUI>(true);
             if (txt != null) room3Text = txt;
         }
     }

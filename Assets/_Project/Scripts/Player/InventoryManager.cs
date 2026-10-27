@@ -1192,7 +1192,7 @@ public class InventoryManager : MonoBehaviour
         if (parentCanvas == null) return;
 
         memoryPaintingPreviewPanel = new GameObject("MemoryPainting_InspectPanel", typeof(RectTransform));
-        memoryPaintingPreviewPanel.transform.SetParent(parentCanvas.transform, false);
+        memoryPaintingPreviewPanel.transform.SetParent(ResponsiveUI.SafeContent(parentCanvas), false);
 
         RectTransform rt = memoryPaintingPreviewPanel.GetComponent<RectTransform>();
         rt.anchorMin = new Vector2(0.5f, 0.5f);
