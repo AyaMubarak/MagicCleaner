@@ -34,57 +34,6 @@ public class AlchemyCauldron : MonoBehaviour
     private bool isPotionReadyToCollect = false;
     private Renderer liquidRenderer;
 
-    public Sprite ResultItemIcon => resultItemIcon;
-
-    private void Awake()
-    {
-        EnsureGenerousHitCollider();
-    }
-
-    private void EnsureGenerousHitCollider()
-    {
-        Collider[] colliders = GetComponentsInChildren<Collider>(true);
-        foreach (Collider c in colliders)
-        {
-            if (c is MeshCollider mc)
-            {
-                if (mc.sharedMesh == null) mc.enabled = false;
-                else mc.convex = true;
-            }
-        }
-
-        BoxCollider box = GetComponent<BoxCollider>();
-        if (box == null) box = gameObject.AddComponent<BoxCollider>();
-        box.enabled = true;
-
-        Renderer[] renderers = GetComponentsInChildren<Renderer>(true);
-        Bounds worldBounds = new Bounds(transform.position, Vector3.one * 0.65f);
-        bool hasRenderer = false;
-        foreach (Renderer r in renderers)
-        {
-            if (r == null) continue;
-            if (!hasRenderer)
-            {
-                worldBounds = r.bounds;
-                hasRenderer = true;
-            }
-            else
-            {
-                worldBounds.Encapsulate(r.bounds);
-            }
-        }
-
-        Vector3 minWorldSize = new Vector3(0.75f, 0.75f, 0.75f);
-        Vector3 targetWorldSize = Vector3.Max(worldBounds.size * 1.35f, minWorldSize);
-        Vector3 lossy = transform.lossyScale;
-        float sx = Mathf.Max(Mathf.Abs(lossy.x), 0.001f);
-        float sy = Mathf.Max(Mathf.Abs(lossy.y), 0.001f);
-        float sz = Mathf.Max(Mathf.Abs(lossy.z), 0.001f);
-
-        box.center = transform.InverseTransformPoint(worldBounds.center);
-        box.size = new Vector3(targetWorldSize.x / sx, targetWorldSize.y / sy, targetWorldSize.z / sz);
-    }
-
     private void Start()
     {
         bool alchemyAlreadyDone = PlayerPrefs.GetInt("Room2_Task_alchemy", 0) == 1 ||
@@ -106,7 +55,11 @@ public class AlchemyCauldron : MonoBehaviour
         }
 
         // ضبط الكولايدر والفيزياء
-        EnsureGenerousHitCollider();
+        Collider col = GetComponent<Collider>();
+        if (col != null && col is MeshCollider meshCol)
+        {
+            meshCol.convex = true;
+        }
 
         Rigidbody rb = GetComponent<Rigidbody>();
         if (rb != null)
@@ -116,79 +69,36 @@ public class AlchemyCauldron : MonoBehaviour
         }
     }
 
-    private void OnMouseDown()
-    {
-        Camera cam = Camera.main;
-        if (cam == null) cam = FindAnyObjectByType<Camera>();
-        if (cam != null)
-        {
-            float effectiveDist = Mathf.Max(maxInteractionDistance, 12f);
-            if (Vector3.Distance(cam.transform.position, transform.position) <= effectiveDist)
-            {
-                HandleCauldronInteraction();
-            }
-        }
-    }
-
     private void Update()
     {
         // استقبال اللمس أو النقر بالماوس
         if (Input.GetMouseButtonDown(0))
         {
-            ProcessTouchRay(Input.mousePosition);
-        }
-        else if (Input.touchCount > 0)
-        {
-            Touch t = Input.GetTouch(0);
-            if (t.phase == TouchPhase.Began)
-            {
-                ProcessTouchRay(t.position);
-            }
+            ProcessTouchRay();
         }
     }
 
-    private void ProcessTouchRay(Vector2 screenPos)
+    private void ProcessTouchRay()
     {
         Camera cam = Camera.main;
         if (cam == null) cam = FindAnyObjectByType<Camera>();
         if (cam == null) return;
 
-        float effectiveDist = Mathf.Max(maxInteractionDistance, 12f);
-        Ray ray = cam.ScreenPointToRay(screenPos);
-
-        RaycastHit[] hits = Physics.RaycastAll(ray, effectiveDist);
-        foreach (var hit in hits)
+        Ray ray = cam.ScreenPointToRay(Input.mousePosition);
+        if (Physics.Raycast(ray, out RaycastHit hit, maxInteractionDistance))
         {
-            if (hit.collider == null) continue;
-            if (hit.transform == transform || hit.transform.IsChildOf(transform) || hit.collider.GetComponentInParent<AlchemyCauldron>() == this)
+            if (hit.transform == transform || hit.transform.IsChildOf(transform))
             {
-                HandleCauldronInteraction();
-                return;
+                // إذا كانت الخلطة جاهزة باللون الأخضر، فالنقرة التالية هي لالتقاطها
+                if (isPotionReadyToCollect)
+                {
+                    CollectFinishedPotion();
+                }
+                else
+                {
+                    TryAddCurrentItem();
+                }
             }
-        }
-
-        RaycastHit[] sphereHits = Physics.SphereCastAll(ray, 0.25f, effectiveDist);
-        foreach (var hit in sphereHits)
-        {
-            if (hit.collider == null) continue;
-            if (hit.transform == transform || hit.transform.IsChildOf(transform) || hit.collider.GetComponentInParent<AlchemyCauldron>() == this)
-            {
-                HandleCauldronInteraction();
-                return;
-            }
-        }
-    }
-
-    private void HandleCauldronInteraction()
-    {
-        // إذا كانت الخلطة جاهزة باللون الأخضر، فالنقرة التالية هي لالتقاطها
-        if (isPotionReadyToCollect)
-        {
-            CollectFinishedPotion();
-        }
-        else
-        {
-            TryAddCurrentItem();
         }
     }
 

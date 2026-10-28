@@ -19,6 +19,14 @@ public class PlayerMovementController : MonoBehaviour
     private void Awake()
     {
         controller = GetComponent<CharacterController>();
+        if (controller != null)
+        {
+            // زيادة نصف قطر التصادم للاعب لمنع الكاميرا من الاقتراب الشديد من الجدران واختراقها
+            if (controller.radius < 0.55f)
+            {
+                controller.radius = 0.55f;
+            }
+        }
 
         // ضبط الكاميرا لتجنب اختراق الجدران (Near Clip Plane)
         Camera cam = GetComponentInChildren<Camera>();
@@ -52,23 +60,6 @@ public class PlayerMovementController : MonoBehaviour
     private float cameraPitch = 0f;
     private Vector2 lastLookPos;
     private int lookTouchId = -1;
-    private bool isMouseLooking;
-
-    private void OnDisable()
-    {
-        isMouseLooking = false;
-        lookTouchId = -1;
-        velocity = Vector3.zero;
-    }
-
-    private void OnApplicationFocus(bool hasFocus)
-    {
-        if (!hasFocus)
-        {
-            isMouseLooking = false;
-            lookTouchId = -1;
-        }
-    }
 
     private void Update()
     {
@@ -123,52 +114,75 @@ public class PlayerMovementController : MonoBehaviour
     {
         if (playerCamera == null) playerCamera = Camera.main;
 
-        // A touch can also synthesize mouse input. Process each drag only once.
-        if (Input.touchCount > 0)
-        {
-            isMouseLooking = false;
-            for (int i = 0; i < Input.touchCount; i++)
-            {
-                Touch touch = Input.GetTouch(i);
-                if (touch.phase == TouchPhase.Began && lookTouchId == -1 && CanLookAtPosition(touch.position))
-                    lookTouchId = touch.fingerId;
-
-                if (touch.fingerId != lookTouchId) continue;
-                if (touch.phase == TouchPhase.Ended || touch.phase == TouchPhase.Canceled)
-                    lookTouchId = -1;
-                else if (touch.phase == TouchPhase.Moved)
-                    ApplyLookDelta(touch.deltaPosition, 0.15f, 0.13f);
-            }
-            return;
-        }
-
-        lookTouchId = -1;
+        // دعم الماوس (في الـ Editor أو الكمبيوتر)
         if (Input.GetMouseButtonDown(0))
         {
-            isMouseLooking = CanLookAtPosition(Input.mousePosition);
-            lastLookPos = Input.mousePosition;
+            if (CanLookAtPosition(Input.mousePosition))
+            {
+                lastLookPos = Input.mousePosition;
+            }
+            else
+            {
+                lastLookPos = Vector2.zero;
+            }
         }
-        else if (Input.GetMouseButtonUp(0) || !Input.GetMouseButton(0))
+        else if (Input.GetMouseButton(0))
         {
-            isMouseLooking = false;
+            if (lastLookPos != Vector2.zero && CanLookAtPosition(Input.mousePosition))
+            {
+                Vector2 currentPos = Input.mousePosition;
+                Vector2 delta = currentPos - lastLookPos;
+                lastLookPos = currentPos;
+
+                if (delta.sqrMagnitude > 0.01f && delta.sqrMagnitude < 2500f)
+                {
+                    transform.Rotate(Vector3.up * (delta.x * 0.16f), Space.World);
+
+                    if (playerCamera != null)
+                    {
+                        cameraPitch = Mathf.Clamp(cameraPitch - delta.y * 0.14f, -40f, 50f);
+                        playerCamera.transform.localRotation = Quaternion.Euler(cameraPitch, 0f, 0f);
+                    }
+                }
+            }
         }
-        else if (isMouseLooking)
+        else if (Input.GetMouseButtonUp(0))
         {
-            Vector2 currentPos = Input.mousePosition;
-            Vector2 delta = currentPos - lastLookPos;
-            lastLookPos = currentPos;
-            if (delta.sqrMagnitude > 0.01f && delta.sqrMagnitude < 2500f)
-                ApplyLookDelta(delta, 0.16f, 0.14f);
+            lastLookPos = Vector2.zero;
+        }
+
+        // دعم شاشات اللمس (Mobile Touch)
+        for (int i = 0; i < Input.touchCount; i++)
+        {
+            Touch t = Input.GetTouch(i);
+            if (!CanLookAtPosition(t.position)) continue;
+
+            if (t.phase == TouchPhase.Began && lookTouchId == -1)
+            {
+                lookTouchId = t.fingerId;
+                lastLookPos = t.position;
+            }
+            else if (t.fingerId == lookTouchId)
+            {
+                if (t.phase == TouchPhase.Moved)
+                {
+                    Vector2 delta = t.deltaPosition;
+                    transform.Rotate(Vector3.up * (delta.x * 0.15f), Space.World);
+
+                    if (playerCamera != null)
+                    {
+                        cameraPitch = Mathf.Clamp(cameraPitch - delta.y * 0.13f, -40f, 50f);
+                        playerCamera.transform.localRotation = Quaternion.Euler(cameraPitch, 0f, 0f);
+                    }
+                }
+                else if (t.phase == TouchPhase.Ended || t.phase == TouchPhase.Canceled)
+                {
+                    lookTouchId = -1;
+                }
+            }
         }
     }
 
-    private void ApplyLookDelta(Vector2 delta, float yawSensitivity, float pitchSensitivity)
-    {
-        transform.Rotate(Vector3.up * (delta.x * yawSensitivity), Space.World);
-        if (playerCamera == null) return;
-        cameraPitch = Mathf.Clamp(cameraPitch - delta.y * pitchSensitivity, -40f, 50f);
-        playerCamera.transform.localRotation = Quaternion.Euler(cameraPitch, 0f, 0f);
-    }
     private bool CanLookAtPosition(Vector2 screenPos)
     {
         if (IsOverJoystick(screenPos)) return false;
@@ -214,7 +228,7 @@ public class PlayerMovementController : MonoBehaviour
             }
         }
 
-        // 2. فحص مجسمات الألغاز ثلاثية الأبعاد (الكتاب على الطاولة، جدار الرمز السري، أرقام الصندوق، الساعة، وعناصر الغرفة الثانية)
+        // 2. فحص مجسمات الألغاز ثلاثية الأبعاد (الكتاب على الطاولة، جدار الرمز السري، أرقام الصندوق، الساعة)
         Camera cam = playerCamera != null ? playerCamera : Camera.main;
         if (cam != null)
         {
@@ -232,23 +246,11 @@ public class PlayerMovementController : MonoBehaviour
                     colName.Contains("dial") || pName.Contains("dial") ||
                     colName.Contains("chest") || pName.Contains("chest") ||
                     colName.Contains("clock") || pName.Contains("clock") ||
-                    colName.Contains("flask") || pName.Contains("flask") ||
-                    colName.Contains("herb") || pName.Contains("herb") ||
-                    colName.Contains("cauldron") || pName.Contains("cauldron") ||
-                    colName.Contains("plant") || pName.Contains("plant") ||
                     hit.collider.GetComponentInParent<ChestDialLock>() != null ||
                     hit.collider.GetComponentInParent<CandlePuzzle>() != null ||
                     hit.collider.GetComponentInParent<BookInteraction>() != null ||
                     hit.collider.GetComponentInParent<GrandfatherClockPuzzle>() != null ||
-                    hit.collider.GetComponentInParent<Room3MemoryPainting>() != null ||
-                    hit.collider.GetComponentInParent<CollectibleItem>() != null ||
-                    hit.collider.GetComponentInParent<AlchemyCauldron>() != null ||
-                    hit.collider.GetComponentInParent<QuickPlantRevive>() != null ||
-                    hit.collider.GetComponentInParent<MagicPlantPuzzle>() != null ||
-                    hit.collider.GetComponentInParent<StairsClimber>() != null ||
-                    hit.collider.GetComponentInParent<RoofExitTrigger>() != null ||
-                    hit.collider.GetComponentInParent<KeyInteraction>() != null ||
-                    hit.collider.GetComponentInParent<TrashCleaner>() != null)
+                    hit.collider.GetComponentInParent<Room3MemoryPainting>() != null)
                 {
                     return true;
                 }

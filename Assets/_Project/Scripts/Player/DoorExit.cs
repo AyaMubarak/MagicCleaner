@@ -133,10 +133,24 @@ public class DoorExit : MonoBehaviour
             }
         }
 
-        // إذا كان المفتاح معه بالحقيبة، نعتبره مفعلاً حتى يفتح الباب بسلاسة ومباشرة!
-        if (!isKeySelected && hasKeyInInventory)
+        // يجب تحديد ونقر المفتاح من الحقيبة أولاً، ثم النقر على الباب
+        if (!isKeySelected)
         {
-            isKeySelected = true;
+            Debug.Log("<color=yellow>[Door]:</color> اضغط على المفتاح في الحقيبة أولاً لتحديده، ثم اضغط على الباب لفتحه!");
+            if (lockedSound != null)
+            {
+                AudioSource.PlayClipAtPoint(lockedSound, transform.position);
+            }
+            else
+            {
+                ProceduralAudioGenerator.PlaySound("door_locked", 0.8f, transform.position);
+            }
+
+            if (InventoryManager.Instance != null)
+            {
+                InventoryManager.Instance.ShowInventoryTemporarily();
+            }
+            return;
         }
 
         // 3. تم النقر على الباب والمفتاح موجود -> يفتح الباب بنجاح!
@@ -387,7 +401,7 @@ public class DoorExit : MonoBehaviour
         string bannerTitle = (currentScene == "Room3") ? "★ LEVEL 3 COMPLETED! ★" : "★ LEVEL 1 COMPLETED! ★";
 
         GameObject banner = new GameObject("LevelCompleteBanner", typeof(RectTransform));
-        banner.transform.SetParent(ResponsiveUI.SafeContent(canvas), false);
+        banner.transform.SetParent(canvas.transform, false);
         Destroy(banner, 5f);
 
         RectTransform rt = banner.GetComponent<RectTransform>();

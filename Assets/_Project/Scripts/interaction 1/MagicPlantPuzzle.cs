@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using UnityEngine;
 
 [RequireComponent(typeof(Collider))]
@@ -46,16 +46,12 @@ public class MagicPlantPuzzle : MonoBehaviour
             if (cam == null) cam = FindAnyObjectByType<Camera>();
             if (cam == null) return;
 
-            float effectiveDist = Mathf.Max(maxDistance, 12f);
             Ray ray = cam.ScreenPointToRay(Input.mousePosition);
-            RaycastHit[] hits = Physics.RaycastAll(ray, effectiveDist);
-            foreach (var hit in hits)
+            if (Physics.Raycast(ray, out RaycastHit hit, maxDistance))
             {
-                if (hit.collider == null) continue;
-                if (hit.transform == transform || hit.transform.IsChildOf(transform) || hit.collider.GetComponentInParent<MagicPlantPuzzle>() == this)
+                if (hit.transform == transform || hit.transform.IsChildOf(transform))
                 {
                     TryWaterPlant();
-                    break;
                 }
             }
         }

@@ -176,7 +176,7 @@ public static class ResponsiveUILayoutEditor
         var rightTitle = Find(right, "Text_GamePlayTitle"); Region(rightTitle, .05f, 1.07f, .95f, 1.21f);
         TextStyle(leftTitle.GetComponent<TMP_Text>(), 32); TextStyle(rightTitle.GetComponent<TMP_Text>(), 32);
         string[] sliders = { "Slider_MasterVolume", "Slider_Music", "Slider_SFX", "Mute_all" };
-        string[] titles = { "Master", "Music", "SFX", "Mute" };
+        string[] titles = { "Master Volume", "Music", "SFX", "Mute All" };
         for (int i = 0; i < sliders.Length; i++)
         {
             var slider = Find(panel, sliders[i]); if (slider == null) continue;
@@ -184,9 +184,9 @@ public static class ResponsiveUILayoutEditor
             float y = .83f - i * .22f;
             Region(slider, .40f, y - .04f, .98f, y + .04f);
             var label = Child(slider, "ResponsiveLabel");
-            Region(label, -.65f, 0f, -.05f, 1f);
+            Region(label, -.72f, 0f, -.06f, 1f);
             var text = label.GetComponent<TextMeshProUGUI>() ?? label.gameObject.AddComponent<TextMeshProUGUI>();
-            TextStyle(text, 26); text.text = titles[i]; text.color = new Color(.40f, .18f, .07f, 1f);
+            TextStyle(text, 24); text.text = titles[i]; text.fontStyle = FontStyles.Bold; text.alignment = TextAlignmentOptions.Left; text.color = new Color(.49f, .25f, .10f, 1f);
         }
         foreach (var legacyLabel in panel.GetComponentsInChildren<TMP_Text>(true))
             if (legacyLabel.name == "Label_Master" || legacyLabel.name == "Label_SFX") legacyLabel.gameObject.SetActive(false);        foreach (Transform child in left)
@@ -196,7 +196,7 @@ public static class ResponsiveUILayoutEditor
         var language = Find(right, "Languages"); Region(language, .03f, .46f, .45f, .59f);
         if (language.GetComponent<TMP_Text>() != null) TextStyle(language.GetComponent<TMP_Text>(), 25);
         var dropdown = Find(right, "Dropdown_Language"); dropdown.SetParent(right, false); Region(dropdown, .48f, .46f, .98f, .59f);
-        var apply = Find(right, "ApplyChanges"); Region(apply, .05f, -.07f, .98f, .11f);
+        var apply = Find(right, "ApplyChanges"); Region(apply, .08f, .03f, .92f, .17f);
         foreach (var t in apply.GetComponentsInChildren<TMP_Text>(true)) { ResponsiveUI.Stretch(t.rectTransform); TextStyle(t, 26); }
         foreach (Transform child in apply) if (child.GetComponent<Button>() != null) ResponsiveUI.Stretch((RectTransform)child);
         var notificationLabel = Find(right, "Label_Notification");

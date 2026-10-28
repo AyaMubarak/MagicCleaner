@@ -276,7 +276,7 @@ public class RoomDustAtmosphere : MonoBehaviour
             RenderSettings.ambientIntensity = 1.40f;
             RenderSettings.ambientLight = new Color(1f, 0.98f, 0.92f);
 
-            Light[] allLights = FindObjectsByType<Light>(FindObjectsSortMode.InstanceID);
+            Light[] allLights = FindObjectsByType<Light>();
             foreach (Light l in allLights)
             {
                 if (l.type == LightType.Directional)
@@ -330,10 +330,10 @@ public class RoomDustAtmosphere : MonoBehaviour
         int completedSteps = (trashDone ? 1 : 0) + (dustDone ? 1 : 0) + (candleDone ? 1 : 0) + (chestOrKeyDone ? 1 : 0);
         float stepProgress = roomSteps >= 0 ? (float)roomSteps / totalRoomSteps : (float)completedSteps / 4f;
 
-        // تعديل Room 2: زيادة التعتيم قليلاً وجعله يتلاشى تدريجياً مع التقدم في المهام
+        // تعديل Room 2: جعل طبقة السواد أخف وتتلاشى تماماً مع التقدم في المهام
         if (sceneName == "Room2")
         {
-            SetRoom2Overlay(Mathf.Lerp(0.48f, 0.08f, stepProgress));
+            SetRoom2Overlay(Mathf.Lerp(0.35f, 0.0f, stepProgress));
         }
         else
         {
@@ -357,11 +357,11 @@ public class RoomDustAtmosphere : MonoBehaviour
         }
         else if (isRoom2)
         {
-            // غرفة 2 أثناء اللعب: تعتيم إضافي متدرج يتفتح مع إنجاز المهام
-            targetAmbientIntensity = Mathf.Lerp(0.07f, 0.32f, stepProgress);
-            targetAmbientColor = Color.Lerp(new Color(0.04f, 0.05f, 0.09f), new Color(0.20f, 0.22f, 0.28f), stepProgress);
-            targetDirIntensity = Mathf.Lerp(0.09f, 0.42f, stepProgress);
-            RenderSettings.reflectionIntensity = Mathf.Lerp(0.06f, 0.30f, stepProgress);
+            // غرفة 2 أثناء اللعب: تفتيح تدريجي ملحوظ ومريح للنظر مع إنجاز المهام
+            targetAmbientIntensity = Mathf.Lerp(0.12f, 0.42f, stepProgress);
+            targetAmbientColor = Color.Lerp(new Color(0.08f, 0.09f, 0.14f), new Color(0.28f, 0.30f, 0.36f), stepProgress);
+            targetDirIntensity = Mathf.Lerp(0.15f, 0.55f, stepProgress);
+            RenderSettings.reflectionIntensity = Mathf.Lerp(0.10f, 0.40f, stepProgress);
         }
         else
         {
@@ -375,7 +375,7 @@ public class RoomDustAtmosphere : MonoBehaviour
         RenderSettings.ambientIntensity = targetAmbientIntensity;
         RenderSettings.ambientLight = targetAmbientColor;
 
-        Light[] lights = FindObjectsByType<Light>(FindObjectsSortMode.InstanceID);
+        Light[] lights = FindObjectsByType<Light>();
         foreach (Light l in lights)
         {
             if (l.type == LightType.Directional)
@@ -390,14 +390,14 @@ public class RoomDustAtmosphere : MonoBehaviour
                 }
                 else
                 {
-                    l.intensity = isRoom2 ? Mathf.Lerp(0.14f, 0.55f, stepProgress) 
+                    l.intensity = isRoom2 ? Mathf.Lerp(0.20f, 0.70f, stepProgress) 
                                 : isRoom3 ? Mathf.Lerp(0.12f, 0.45f, stepProgress) 
                                 : Mathf.Lerp(0.06f, 0.20f, stepProgress);
                 }
             }
             else if (l.type == LightType.Spot)
             {
-                l.intensity = isRoom2 ? Mathf.Lerp(0.18f, 0.52f, stepProgress) : Mathf.Lerp(0.15f, 0.45f, stepProgress);
+                l.intensity = isRoom2 ? Mathf.Lerp(0.25f, 0.65f, stepProgress) : Mathf.Lerp(0.15f, 0.45f, stepProgress);
             }
         }
 

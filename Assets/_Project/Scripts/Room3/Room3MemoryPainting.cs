@@ -100,7 +100,7 @@ public class Room3MemoryPainting : MonoBehaviour
         paintingRenderers.Clear();
 
         Renderer preferredPainting = null;
-        Renderer[] sceneRenderers = FindObjectsByType<Renderer>(FindObjectsSortMode.InstanceID);
+        Renderer[] sceneRenderers = FindObjectsByType<Renderer>();
         foreach (Renderer candidate in sceneRenderers)
         {
             if (candidate == null) continue;
@@ -496,7 +496,7 @@ public class Room3MemoryPainting : MonoBehaviour
         if (canvas == null) return;
 
         GameObject banner = new GameObject("MemoryTimeDiscoveredBanner", typeof(RectTransform));
-        banner.transform.SetParent(ResponsiveUI.SafeContent(canvas), false);
+        banner.transform.SetParent(canvas.transform, false);
 
         RectTransform rt = banner.GetComponent<RectTransform>();
         rt.anchorMin = new Vector2(0.5f, 0.5f);

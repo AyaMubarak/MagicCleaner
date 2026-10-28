@@ -527,13 +527,13 @@ public class GrandfatherClockPuzzle : MonoBehaviour
         CanvasScaler scaler = clockScreenCanvas.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920, 1080);
-        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
+        scaler.matchWidthOrHeight = 0.5f;
 
         clockScreenCanvas.AddComponent<GraphicRaycaster>();
 
         // 2. Dark Overlay Backdrop (Clicking backdrop closes modal)
         GameObject bgObj = new GameObject("Backdrop");
-        bgObj.transform.SetParent(ResponsiveUI.SafeContent(clockScreenCanvas.GetComponent<Canvas>()), false);
+        bgObj.transform.SetParent(clockScreenCanvas.transform, false);
         Image bgImg = bgObj.AddComponent<Image>();
         bgImg.color = new Color(0.04f, 0.05f, 0.08f, 0.90f);
         RectTransform bgRT = bgObj.GetComponent<RectTransform>();
@@ -543,7 +543,7 @@ public class GrandfatherClockPuzzle : MonoBehaviour
 
         // 3. Modal Panel Frame
         GameObject modal = new GameObject("ClockModal");
-        modal.transform.SetParent(ResponsiveUI.SafeContent(clockScreenCanvas.GetComponent<Canvas>()), false);
+        modal.transform.SetParent(clockScreenCanvas.transform, false);
         Image modalImg = modal.AddComponent<Image>();
         modalImg.color = new Color(0.09f, 0.12f, 0.17f, 0.98f);
         RectTransform modalRT = modal.GetComponent<RectTransform>();
@@ -692,10 +692,10 @@ public class GrandfatherClockPuzzle : MonoBehaviour
         CanvasScaler scaler = bannerCanvasObj.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920, 1080);
-        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
+        scaler.matchWidthOrHeight = 0.5f;
 
         notificationBannerObj = new GameObject("ToastPanel");
-        notificationBannerObj.transform.SetParent(ResponsiveUI.SafeContent(bannerCanvasObj.GetComponent<Canvas>()), false);
+        notificationBannerObj.transform.SetParent(bannerCanvasObj.transform, false);
 
         Image img = notificationBannerObj.AddComponent<Image>();
         img.color = new Color(0.08f, 0.10f, 0.16f, 0.95f);

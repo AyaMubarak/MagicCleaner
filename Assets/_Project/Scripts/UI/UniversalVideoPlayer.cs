@@ -180,7 +180,7 @@ public class UniversalVideoPlayer : MonoBehaviour
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920, 1080);
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
+            scaler.matchWidthOrHeight = 0.5f;
 
             canvasObj.AddComponent<GraphicRaycaster>();
 
@@ -205,21 +205,16 @@ public class UniversalVideoPlayer : MonoBehaviour
 
             videoDisplayImage = rawImageObj.AddComponent<RawImage>();
             videoDisplayImage.color = Color.white;
-            AspectRatioFitter videoFit = videoDisplayImage.GetComponent<AspectRatioFitter>() ?? videoDisplayImage.gameObject.AddComponent<AspectRatioFitter>();
-            videoFit.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
-            videoFit.aspectRatio = 16f / 9f;
 
             renderTexture = new RenderTexture(1920, 1080, 24, RenderTextureFormat.ARGB32);
             renderTexture.Create();
             videoPlayer.targetTexture = renderTexture;
             videoDisplayImage.texture = renderTexture;
 
-            RectTransform videoControls = ResponsiveUI.SafeContent(videoCanvas);
-            videoControls.SetParent(videoContainer.transform, false);
-            skipButton = CreateTopButton(videoControls, "SkipButton", "Skip >", new Vector2(1f, 1f), new Vector2(-60, -45), new Vector2(1f, 1f));
+            skipButton = CreateTopButton(videoContainer.transform, "SkipButton", "Skip >", new Vector2(1f, 1f), new Vector2(-60, -45), new Vector2(1f, 1f));
             skipButton.onClick.AddListener(SkipVideo);
 
-            backButton = CreateTopButton(videoControls, "BackButton", "< Back", new Vector2(0f, 1f), new Vector2(60, -45), new Vector2(0f, 1f));
+            backButton = CreateTopButton(videoContainer.transform, "BackButton", "< Back", new Vector2(0f, 1f), new Vector2(60, -45), new Vector2(0f, 1f));
             backButton.onClick.AddListener(BackVideo);
 
             videoContainer.SetActive(false);
@@ -464,9 +459,6 @@ public class UniversalVideoPlayer : MonoBehaviour
         if (videoDisplayImage != null)
         {
             videoDisplayImage.color = Color.white;
-            AspectRatioFitter videoFit = videoDisplayImage.GetComponent<AspectRatioFitter>() ?? videoDisplayImage.gameObject.AddComponent<AspectRatioFitter>();
-            videoFit.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
-            videoFit.aspectRatio = 16f / 9f;
         }
 
         if (videoPlayer != null)

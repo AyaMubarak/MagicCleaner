@@ -308,7 +308,7 @@ public class Room3DoorExit : MonoBehaviour
         if (canvas == null) return;
 
         GameObject banner = new GameObject("LevelCompleteBanner", typeof(RectTransform));
-        banner.transform.SetParent(ResponsiveUI.SafeContent(canvas), false);
+        banner.transform.SetParent(canvas.transform, false);
         Destroy(banner, 5f);
 
         RectTransform rt = banner.GetComponent<RectTransform>();

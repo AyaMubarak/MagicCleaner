@@ -462,7 +462,7 @@ public class LevelProgressGuide : MonoBehaviour
 
             if (!foundTarget && id == "herb")
             {
-                CollectibleItem[] collectibles = Object.FindObjectsByType<CollectibleItem>(FindObjectsSortMode.InstanceID);
+                CollectibleItem[] collectibles = Object.FindObjectsByType<CollectibleItem>();
                 foreach (CollectibleItem collectible in collectibles)
                 {
                     if (collectible != null && collectible.gameObject.activeInHierarchy &&
@@ -729,13 +729,6 @@ public class LevelProgressGuide : MonoBehaviour
         GameObject existingCanvas = GameObject.Find("ProgressGuideCanvas_HUD");
         if (existingCanvas != null && (guideCanvas == null || hintButtonComponent == null || hintButtonText == null || MagicalFairyCompanion.Instance == null))
         {
-            // حماية زر الحقيبة (Inventory_Toggle_Button / BagButton) من التدمير إذا كان قد نُقل داخل existingCanvas سابقاً
-            GameObject bagBtn = GameObject.Find("Inventory_Toggle_Button") ?? GameObject.Find("BagButton");
-            if (bagBtn != null && bagBtn.transform.IsChildOf(existingCanvas.transform))
-            {
-                bagBtn.transform.SetParent(null, false);
-            }
-            bagRepositioned = false;
             Destroy(existingCanvas);
         }
 
@@ -748,14 +741,14 @@ public class LevelProgressGuide : MonoBehaviour
         CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920, 1080);
-        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.Expand;
+        scaler.matchWidthOrHeight = 0.5f;
 
         canvasObj.AddComponent<GraphicRaycaster>();
         guideCanvas = canvas;
 
         // ================= 0. BACK BUTTON (Top-Left: Sleek Glassmorphism Design) =================
         GameObject backBtnObj = new GameObject("Btn_BackToLevels");
-        backBtnObj.transform.SetParent(ResponsiveUI.SafeContent(canvas), false);
+        backBtnObj.transform.SetParent(canvas.transform, false);
         RectTransform bRect = backBtnObj.AddComponent<RectTransform>();
         bRect.anchorMin = new Vector2(0f, 1f);
         bRect.anchorMax = new Vector2(0f, 1f);
@@ -790,7 +783,7 @@ public class LevelProgressGuide : MonoBehaviour
 
         // ================= 1. HINT BUTTON (Top-Right: Sleek Glassmorphism Design) =================
         GameObject hintBtnObj = new GameObject("Btn_HintSideToggle");
-        hintBtnObj.transform.SetParent(ResponsiveUI.SafeContent(canvas), false);
+        hintBtnObj.transform.SetParent(canvas.transform, false);
         RectTransform hbRect = hintBtnObj.AddComponent<RectTransform>();
         hbRect.anchorMin = new Vector2(1f, 1f);
         hbRect.anchorMax = new Vector2(1f, 1f);
@@ -837,14 +830,14 @@ public class LevelProgressGuide : MonoBehaviour
         {
             fairyIcon = Resources.Load<Sprite>("magic_fairy_hint");
         }
-        MagicalFairyCompanion.CreateOnCanvas(canvas, new Vector2(-280, -75), fairyIcon);
+        MagicalFairyCompanion.CreateOnCanvas(canvas, new Vector2(-280, -45), fairyIcon);
 
         // وضع الحقيبة بجانب زر الرجوع في أعلى اليسار
         RepositionBagButton();
 
         // ================= 2. TOP PROGRESS BAR (Center) =================
         GameObject topBarContainer = new GameObject("TaskProgressBar_HUD");
-        topBarContainer.transform.SetParent(ResponsiveUI.SafeContent(canvas), false);
+        topBarContainer.transform.SetParent(canvas.transform, false);
         RectTransform barRect = topBarContainer.AddComponent<RectTransform>();
         barRect.anchorMin = new Vector2(0.5f, 1f);
         barRect.anchorMax = new Vector2(0.5f, 1f);
@@ -922,7 +915,7 @@ public class LevelProgressGuide : MonoBehaviour
         if (bagBtn != null && guideCanvas != null)
         {
             // وضعه داخل guideCanvas بجانب زر الـ Back مباشرة بنفس المقياس
-            bagBtn.transform.SetParent(ResponsiveUI.SafeContent(guideCanvas), false);
+            bagBtn.transform.SetParent(guideCanvas.transform, false);
 
             RectTransform rt = bagBtn.GetComponent<RectTransform>();
             if (rt != null)
