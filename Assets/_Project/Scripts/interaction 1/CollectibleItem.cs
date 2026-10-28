@@ -17,34 +17,60 @@ public class CollectibleItem : MonoBehaviour
     private bool isCollected = false;
 
     public string ItemID => itemID;
+    public Sprite ItemIcon => itemIcon;
 
     private void Awake()
     {
-        Collider[] colliders = GetComponentsInChildren<Collider>();
-        bool hasUsableCollider = false;
+        EnsureGenerousHitCollider();
+    }
+
+    private void EnsureGenerousHitCollider()
+    {
+        Collider[] colliders = GetComponentsInChildren<Collider>(true);
         foreach (Collider currentCollider in colliders)
         {
-            MeshCollider meshCollider = currentCollider as MeshCollider;
-            if (currentCollider.enabled && (meshCollider == null || meshCollider.sharedMesh != null))
+            if (currentCollider is MeshCollider meshCollider && meshCollider.sharedMesh == null)
             {
-                hasUsableCollider = true;
-                break;
+                meshCollider.enabled = false;
             }
         }
 
-        if (!hasUsableCollider)
+        // دائماً نضيف أو نضبط BoxCollider واسع وواضح على الكائن الأب لتسهيل الالتقاط باللمس أو الماوس من أي زاوية
+        BoxCollider boxCollider = GetComponent<BoxCollider>();
+        if (boxCollider == null)
         {
-            BoxCollider fallbackCollider = gameObject.AddComponent<BoxCollider>();
-            Bounds bounds = new Bounds(transform.position, Vector3.one * 0.5f);
-            Renderer[] renderers = GetComponentsInChildren<Renderer>();
-            foreach (Renderer currentRenderer in renderers)
-            {
-                bounds.Encapsulate(currentRenderer.bounds);
-            }
-
-            fallbackCollider.center = transform.InverseTransformPoint(bounds.center);
-            fallbackCollider.size = bounds.size;
+            boxCollider = gameObject.AddComponent<BoxCollider>();
         }
+        boxCollider.enabled = true;
+
+        Renderer[] renderers = GetComponentsInChildren<Renderer>(true);
+        Bounds worldBounds = new Bounds(transform.position, Vector3.one * 0.45f);
+        bool hasRenderer = false;
+        foreach (Renderer currentRenderer in renderers)
+        {
+            if (currentRenderer == null) continue;
+            if (!hasRenderer)
+            {
+                worldBounds = currentRenderer.bounds;
+                hasRenderer = true;
+            }
+            else
+            {
+                worldBounds.Encapsulate(currentRenderer.bounds);
+            }
+        }
+
+        // ضمان حجم أدنى مريح جداً للنقر في الفضاء العالمي (على الأقل 0.65 متر في كل اتجاه)
+        Vector3 minWorldSize = new Vector3(0.65f, 0.65f, 0.65f);
+        Vector3 targetWorldSize = Vector3.Max(worldBounds.size * 1.45f, minWorldSize);
+
+        Vector3 lossy = transform.lossyScale;
+        float sx = Mathf.Max(Mathf.Abs(lossy.x), 0.001f);
+        float sy = Mathf.Max(Mathf.Abs(lossy.y), 0.001f);
+        float sz = Mathf.Max(Mathf.Abs(lossy.z), 0.001f);
+
+        boxCollider.center = transform.InverseTransformPoint(worldBounds.center);
+        boxCollider.size = new Vector3(targetWorldSize.x / sx, targetWorldSize.y / sy, targetWorldSize.z / sz);
     }
 
     private void Start()
@@ -97,6 +123,23 @@ public class CollectibleItem : MonoBehaviour
         }
     }
 
+    private void OnMouseDown()
+    {
+        if (isCollected) return;
+        if (IsPointerOverUIButton(Input.mousePosition)) return;
+
+        Camera cam = Camera.main;
+        if (cam == null) cam = FindAnyObjectByType<Camera>();
+        if (cam != null)
+        {
+            float effectiveDist = Mathf.Max(maxDistance, 12f);
+            if (Vector3.Distance(cam.transform.position, TargetPosition) <= effectiveDist)
+            {
+                Collect();
+            }
+        }
+    }
+
     private void Update()
     {
         if (isCollected) return;
@@ -104,18 +147,68 @@ public class CollectibleItem : MonoBehaviour
         // استقبال اللمس على الموبايل أو نقرة الماوس
         if (Input.GetMouseButtonDown(0))
         {
-            Camera cam = Camera.main;
-            if (cam == null) cam = FindAnyObjectByType<Camera>();
-            if (cam == null) return;
-
-            Ray ray = cam.ScreenPointToRay(Input.mousePosition);
-            if (Physics.Raycast(ray, out RaycastHit hit, maxDistance))
+            TryCollectFromScreenPoint(Input.mousePosition);
+        }
+        else if (Input.touchCount > 0)
+        {
+            Touch touch = Input.GetTouch(0);
+            if (touch.phase == TouchPhase.Began)
             {
-                CollectibleItem hitItem = hit.collider.GetComponentInParent<CollectibleItem>();
-                if (hitItem == this)
-                {
-                    Collect();
-                }
+                TryCollectFromScreenPoint(touch.position);
+            }
+        }
+    }
+
+    private bool IsPointerOverUIButton(Vector2 screenPos)
+    {
+        if (UnityEngine.EventSystems.EventSystem.current == null) return false;
+        var eventData = new UnityEngine.EventSystems.PointerEventData(UnityEngine.EventSystems.EventSystem.current)
+        {
+            position = screenPos
+        };
+        var results = new System.Collections.Generic.List<UnityEngine.EventSystems.RaycastResult>();
+        UnityEngine.EventSystems.EventSystem.current.RaycastAll(eventData, results);
+        foreach (var r in results)
+        {
+            if (r.gameObject != null && r.gameObject.GetComponentInParent<UnityEngine.UI.Button>() != null)
+                return true;
+        }
+        return false;
+    }
+
+    private void TryCollectFromScreenPoint(Vector2 screenPos)
+    {
+        if (isCollected) return;
+        if (IsPointerOverUIButton(screenPos)) return;
+
+        Camera cam = Camera.main;
+        if (cam == null) cam = FindAnyObjectByType<Camera>();
+        if (cam == null) return;
+
+        float effectiveDist = Mathf.Max(maxDistance, 12f);
+        Ray ray = cam.ScreenPointToRay(screenPos);
+
+        // 1. RaycastAll لاختراق أي عوائق أو طاولات تحجب العنصر
+        RaycastHit[] hits = Physics.RaycastAll(ray, effectiveDist);
+        foreach (var hit in hits)
+        {
+            if (hit.collider == null) continue;
+            if (hit.transform == transform || hit.transform.IsChildOf(transform) || hit.collider.GetComponentInParent<CollectibleItem>() == this)
+            {
+                Collect();
+                return;
+            }
+        }
+
+        // 2. SphereCastAll بنصف قطر مريح لالتقاط العناصر الصغيرة بسهولة عند اللمس القريب منها
+        RaycastHit[] sphereHits = Physics.SphereCastAll(ray, 0.25f, effectiveDist);
+        foreach (var hit in sphereHits)
+        {
+            if (hit.collider == null) continue;
+            if (hit.transform == transform || hit.transform.IsChildOf(transform) || hit.collider.GetComponentInParent<CollectibleItem>() == this)
+            {
+                Collect();
+                return;
             }
         }
     }

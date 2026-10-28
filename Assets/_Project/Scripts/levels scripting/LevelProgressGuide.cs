@@ -729,6 +729,13 @@ public class LevelProgressGuide : MonoBehaviour
         GameObject existingCanvas = GameObject.Find("ProgressGuideCanvas_HUD");
         if (existingCanvas != null && (guideCanvas == null || hintButtonComponent == null || hintButtonText == null || MagicalFairyCompanion.Instance == null))
         {
+            // حماية زر الحقيبة (Inventory_Toggle_Button / BagButton) من التدمير إذا كان قد نُقل داخل existingCanvas سابقاً
+            GameObject bagBtn = GameObject.Find("Inventory_Toggle_Button") ?? GameObject.Find("BagButton");
+            if (bagBtn != null && bagBtn.transform.IsChildOf(existingCanvas.transform))
+            {
+                bagBtn.transform.SetParent(null, false);
+            }
+            bagRepositioned = false;
             Destroy(existingCanvas);
         }
 

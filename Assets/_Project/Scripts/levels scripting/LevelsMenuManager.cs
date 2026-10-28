@@ -330,6 +330,10 @@ public class LevelsMenuManager : MonoBehaviour
 
             if (button != null)
             {
+                // إخفاء أيقونة القفل/الأدوات عند اكتمال المرحلة حتى لا تتداخل مع بانر Completed
+                Transform iconT = button.transform.Find("new icons");
+                if (iconT != null) iconT.gameObject.SetActive(false);
+
                 // الضغط على البطاقة أيضاً يسمح بالدخول وإعادة اللعبة من البداية
                 button.interactable = true;
                 button.onClick.RemoveAllListeners();
@@ -447,6 +451,11 @@ public class LevelsMenuManager : MonoBehaviour
                     // عندما تكون المرحلة Start / Unlocked: نستخدم دائماً أيقونة tools الأصلية الخاصة بك من الكانفاس
                     if (cachedToolsSprite == null)
                     {
+                        cachedToolsSprite = openLockSprite;
+                    }
+
+                    if (cachedToolsSprite == null)
+                    {
                         if (room1Button != null)
                         {
                             Transform r1Icon = room1Button.transform.Find("new icons");
@@ -457,6 +466,20 @@ public class LevelsMenuManager : MonoBehaviour
                                 {
                                     cachedToolsSprite = r1Img.sprite;
                                 }
+                            }
+                        }
+
+                        if (cachedToolsSprite == null)
+                        {
+                            cachedToolsSprite = Resources.Load<Sprite>("tools");
+                        }
+
+                        if (cachedToolsSprite == null)
+                        {
+                            Texture2D tex = Resources.Load<Texture2D>("tools");
+                            if (tex != null)
+                            {
+                                cachedToolsSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
                             }
                         }
 
@@ -479,12 +502,28 @@ public class LevelsMenuManager : MonoBehaviour
                         iconImg.sprite = cachedToolsSprite;
                     }
 
-                    // الحفاظ على لون وشكل الأيقونة الأبيض الأصلي دون أي تلوين أصفر
+                    // الحفاظ على لون وشكل الأيقونة الأصلي
                     iconImg.color = Color.white;
                 }
                 else
                 {
                     // عندما تكون المرحلة مقفلة Locked: استخدام أيقونة padlock (1) الأصلية الخاصة بك
+                    if (cachedLockedPadlockSprite == null)
+                    {
+                        cachedLockedPadlockSprite = closedLockSprite
+                                                 ?? Resources.Load<Sprite>("padlock (1)")
+                                                 ?? Resources.Load<Sprite>("padlock_closed");
+                    }
+
+                    if (cachedLockedPadlockSprite == null)
+                    {
+                        Texture2D tex = Resources.Load<Texture2D>("padlock (1)") ?? Resources.Load<Texture2D>("padlock_closed");
+                        if (tex != null)
+                        {
+                            cachedLockedPadlockSprite = Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+                        }
+                    }
+
                     if (cachedLockedPadlockSprite == null)
                     {
                         Sprite[] allSprites = Resources.FindObjectsOfTypeAll<Sprite>();

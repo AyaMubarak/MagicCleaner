@@ -23,6 +23,55 @@ public class QuickPlantRevive : MonoBehaviour
     // المراحل: 0 = ذابلة/فارغة، 1 = نمت وقوية، 2 = اختفت والمفتاح ظهر
     private int puzzleStage = 0;
 
+    private void Awake()
+    {
+        EnsureGenerousHitCollider();
+    }
+
+    private void EnsureGenerousHitCollider()
+    {
+        Collider[] colliders = GetComponentsInChildren<Collider>(true);
+        foreach (Collider c in colliders)
+        {
+            if (c is MeshCollider mc)
+            {
+                if (mc.sharedMesh == null) mc.enabled = false;
+                else mc.convex = true;
+            }
+        }
+
+        BoxCollider box = GetComponent<BoxCollider>();
+        if (box == null) box = gameObject.AddComponent<BoxCollider>();
+        box.enabled = true;
+
+        Renderer[] renderers = GetComponentsInChildren<Renderer>(true);
+        Bounds worldBounds = new Bounds(transform.position, Vector3.one * 0.65f);
+        bool hasRenderer = false;
+        foreach (Renderer r in renderers)
+        {
+            if (r == null) continue;
+            if (!hasRenderer)
+            {
+                worldBounds = r.bounds;
+                hasRenderer = true;
+            }
+            else
+            {
+                worldBounds.Encapsulate(r.bounds);
+            }
+        }
+
+        Vector3 minWorldSize = new Vector3(0.75f, 0.75f, 0.75f);
+        Vector3 targetWorldSize = Vector3.Max(worldBounds.size * 1.35f, minWorldSize);
+        Vector3 lossy = transform.lossyScale;
+        float sx = Mathf.Max(Mathf.Abs(lossy.x), 0.001f);
+        float sy = Mathf.Max(Mathf.Abs(lossy.y), 0.001f);
+        float sz = Mathf.Max(Mathf.Abs(lossy.z), 0.001f);
+
+        box.center = transform.InverseTransformPoint(worldBounds.center);
+        box.size = new Vector3(targetWorldSize.x / sx, targetWorldSize.y / sy, targetWorldSize.z / sz);
+    }
+
     private void Start()
     {
         bool waterDone = PlayerPrefs.GetInt("Room2_Task_water", 0) == 1;
@@ -61,10 +110,22 @@ public class QuickPlantRevive : MonoBehaviour
         }
 
         // ضبط الكولايدر
-        Collider col = GetComponent<Collider>();
-        if (col != null && col is MeshCollider meshCol)
+        EnsureGenerousHitCollider();
+    }
+
+    private void OnMouseDown()
+    {
+        if (puzzleStage >= 2) return;
+
+        Camera cam = Camera.main;
+        if (cam == null) cam = FindAnyObjectByType<Camera>();
+        if (cam != null)
         {
-            meshCol.convex = true;
+            float effectiveDist = Mathf.Max(maxDistance, 12f);
+            if (Vector3.Distance(cam.transform.position, transform.position) <= effectiveDist)
+            {
+                HandlePlantClick();
+            }
         }
     }
 
@@ -74,17 +135,46 @@ public class QuickPlantRevive : MonoBehaviour
 
         if (Input.GetMouseButtonDown(0))
         {
-            Camera cam = Camera.main;
-            if (cam == null) cam = FindAnyObjectByType<Camera>();
-            if (cam == null) return;
-
-            Ray ray = cam.ScreenPointToRay(Input.mousePosition);
-            if (Physics.Raycast(ray, out RaycastHit hit, maxDistance))
+            TryClickPlant(Input.mousePosition);
+        }
+        else if (Input.touchCount > 0)
+        {
+            Touch t = Input.GetTouch(0);
+            if (t.phase == TouchPhase.Began)
             {
-                if (hit.transform == transform || hit.transform.IsChildOf(transform))
-                {
-                    HandlePlantClick();
-                }
+                TryClickPlant(t.position);
+            }
+        }
+    }
+
+    private void TryClickPlant(Vector2 screenPos)
+    {
+        Camera cam = Camera.main;
+        if (cam == null) cam = FindAnyObjectByType<Camera>();
+        if (cam == null) return;
+
+        float effectiveDist = Mathf.Max(maxDistance, 12f);
+        Ray ray = cam.ScreenPointToRay(screenPos);
+
+        RaycastHit[] hits = Physics.RaycastAll(ray, effectiveDist);
+        foreach (var hit in hits)
+        {
+            if (hit.collider == null) continue;
+            if (hit.transform == transform || hit.transform.IsChildOf(transform) || hit.collider.GetComponentInParent<QuickPlantRevive>() == this)
+            {
+                HandlePlantClick();
+                return;
+            }
+        }
+
+        RaycastHit[] sphereHits = Physics.SphereCastAll(ray, 0.25f, effectiveDist);
+        foreach (var hit in sphereHits)
+        {
+            if (hit.collider == null) continue;
+            if (hit.transform == transform || hit.transform.IsChildOf(transform) || hit.collider.GetComponentInParent<QuickPlantRevive>() == this)
+            {
+                HandlePlantClick();
+                return;
             }
         }
     }

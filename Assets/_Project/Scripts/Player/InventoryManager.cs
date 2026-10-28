@@ -104,6 +104,12 @@ public class InventoryManager : MonoBehaviour
         }
 
         ForceRefreshUI();
+
+        // إذا كان لدى اللاعب أدوات محفوظة في حقيبته (مثلاً بعد الضغط على BACK ثم العودة للمرحلة)، نظهر شريط الأدوات مباشرة حتى لا تختفي الأيقونات
+        if (inventoryItems.Count > 0)
+        {
+            ShowInventoryTemporarily();
+        }
     }
 
     private void BindInventoryToggleButton()
@@ -227,7 +233,15 @@ public class InventoryManager : MonoBehaviour
 
     public static Sprite GetFlintSprite()
     {
-        return Resources.Load<Sprite>("flint_icon") ?? Resources.Load<Sprite>("lighter_icon");
+        Sprite fIcon = Resources.Load<Sprite>("flint_icon") ?? Resources.Load<Sprite>("lighter_icon");
+        if (fIcon != null) return fIcon;
+
+        Texture2D tex = Resources.Load<Texture2D>("flint_icon") ?? Resources.Load<Texture2D>("lighter_icon");
+        if (tex != null)
+        {
+            return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+        }
+        return null;
     }
 
     public static Sprite GetMemoryPaintingSprite()
@@ -332,6 +346,32 @@ public class InventoryManager : MonoBehaviour
 
     public static Sprite GetPotionSprite()
     {
+        // 1. البحث عن الأيقونة الأصلية من الكائن الموجود في المشهد (حتى لو كان غير مفعل)
+        AlchemyCauldron[] cauldrons = FindObjectsByType<AlchemyCauldron>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (var c in cauldrons)
+        {
+            if (c != null && c.ResultItemIcon != null) return c.ResultItemIcon;
+        }
+
+        // 2. البحث في Resources
+        Sprite resSprite = Resources.Load<Sprite>("potion");
+        if (resSprite != null) return resSprite;
+
+        Texture2D resTex = Resources.Load<Texture2D>("potion");
+        if (resTex != null)
+        {
+            return Sprite.Create(resTex, new Rect(0, 0, resTex.width, resTex.height), new Vector2(0.5f, 0.5f));
+        }
+
+        // 3. البحث في الذاكرة
+        Sprite[] loadedSprites = Resources.FindObjectsOfTypeAll<Sprite>();
+        foreach (var s in loadedSprites)
+        {
+            if (s != null && s.name.StartsWith("potion", System.StringComparison.OrdinalIgnoreCase))
+                return s;
+        }
+
+        // 4. البحث في القرص (في المحرر)
         string p = System.IO.Path.Combine(Application.dataPath, "_Project/potion.png");
         if (System.IO.File.Exists(p))
         {
@@ -345,6 +385,37 @@ public class InventoryManager : MonoBehaviour
 
     public static Sprite GetBottleSprite()
     {
+        // 1. البحث عن الأيقونة الأصلية من الكائن الموجود في المشهد (حتى لو كان غير مفعل)
+        CollectibleItem[] items = FindObjectsByType<CollectibleItem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (var item in items)
+        {
+            if (item != null && item.ItemIcon != null &&
+                (item.ItemID.IndexOf("flask", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 item.ItemID.IndexOf("bottle", System.StringComparison.OrdinalIgnoreCase) >= 0))
+            {
+                return item.ItemIcon;
+            }
+        }
+
+        // 2. البحث في Resources
+        Sprite resSprite = Resources.Load<Sprite>("bottle");
+        if (resSprite != null) return resSprite;
+
+        Texture2D resTex = Resources.Load<Texture2D>("bottle");
+        if (resTex != null)
+        {
+            return Sprite.Create(resTex, new Rect(0, 0, resTex.width, resTex.height), new Vector2(0.5f, 0.5f));
+        }
+
+        // 3. البحث في الذاكرة
+        Sprite[] loadedSprites = Resources.FindObjectsOfTypeAll<Sprite>();
+        foreach (var s in loadedSprites)
+        {
+            if (s != null && s.name.StartsWith("bottle", System.StringComparison.OrdinalIgnoreCase))
+                return s;
+        }
+
+        // 4. البحث في القرص (في المحرر)
         string p = System.IO.Path.Combine(Application.dataPath, "_Project/bottle.png");
         if (System.IO.File.Exists(p))
         {
@@ -358,6 +429,37 @@ public class InventoryManager : MonoBehaviour
 
     public static Sprite GetMortarSprite()
     {
+        // 1. البحث عن الأيقونة الأصلية من الكائن الموجود في المشهد (حتى لو كان غير مفعل)
+        CollectibleItem[] items = FindObjectsByType<CollectibleItem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        foreach (var item in items)
+        {
+            if (item != null && item.ItemIcon != null &&
+                (item.ItemID.IndexOf("herb", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 item.ItemID.IndexOf("mortar", System.StringComparison.OrdinalIgnoreCase) >= 0))
+            {
+                return item.ItemIcon;
+            }
+        }
+
+        // 2. البحث في Resources
+        Sprite resSprite = Resources.Load<Sprite>("mortar");
+        if (resSprite != null) return resSprite;
+
+        Texture2D resTex = Resources.Load<Texture2D>("mortar");
+        if (resTex != null)
+        {
+            return Sprite.Create(resTex, new Rect(0, 0, resTex.width, resTex.height), new Vector2(0.5f, 0.5f));
+        }
+
+        // 3. البحث في الذاكرة
+        Sprite[] loadedSprites = Resources.FindObjectsOfTypeAll<Sprite>();
+        foreach (var s in loadedSprites)
+        {
+            if (s != null && s.name.StartsWith("mortar", System.StringComparison.OrdinalIgnoreCase))
+                return s;
+        }
+
+        // 4. البحث في القرص (في المحرر)
         string p = System.IO.Path.Combine(Application.dataPath, "_Project/mortar.png");
         if (System.IO.File.Exists(p))
         {
@@ -818,9 +920,30 @@ public class InventoryManager : MonoBehaviour
 
             if (i < inventoryItems.Count)
             {
+                if (inventoryItems[i].icon == null)
+                {
+                    var entry = inventoryItems[i];
+                    entry.icon = ResolveItemIcon(entry.id);
+                    inventoryItems[i] = entry;
+                }
+
+                // إذا بقيت الأيقونة فارغة لأي سبب، لا نفعّل الخانة أبداً حتى لا تظهر كمربع أبيض!
+                if (inventoryItems[i].icon == null)
+                {
+                    slotIcons[i].sprite = null;
+                    slotIcons[i].color = new Color(0, 0, 0, 0);
+                    slotIcons[i].gameObject.SetActive(false);
+                    if (slotButtons != null && i < slotButtons.Length && slotButtons[i] != null)
+                    {
+                        slotButtons[i].gameObject.SetActive(false);
+                    }
+                    continue;
+                }
+
                 // خانة ممتلئة بعنصر حقيقي
                 slotIcons[i].gameObject.SetActive(true);
                 slotIcons[i].sprite = inventoryItems[i].icon;
+                slotIcons[i].preserveAspect = true;
                 
                 bool isThisSelected = !string.IsNullOrEmpty(SelectedItem) && 
                     inventoryItems[i].id.Equals(SelectedItem, System.StringComparison.OrdinalIgnoreCase);

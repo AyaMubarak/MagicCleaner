@@ -214,7 +214,7 @@ public class PlayerMovementController : MonoBehaviour
             }
         }
 
-        // 2. فحص مجسمات الألغاز ثلاثية الأبعاد (الكتاب على الطاولة، جدار الرمز السري، أرقام الصندوق، الساعة)
+        // 2. فحص مجسمات الألغاز ثلاثية الأبعاد (الكتاب على الطاولة، جدار الرمز السري، أرقام الصندوق، الساعة، وعناصر الغرفة الثانية)
         Camera cam = playerCamera != null ? playerCamera : Camera.main;
         if (cam != null)
         {
@@ -232,11 +232,23 @@ public class PlayerMovementController : MonoBehaviour
                     colName.Contains("dial") || pName.Contains("dial") ||
                     colName.Contains("chest") || pName.Contains("chest") ||
                     colName.Contains("clock") || pName.Contains("clock") ||
+                    colName.Contains("flask") || pName.Contains("flask") ||
+                    colName.Contains("herb") || pName.Contains("herb") ||
+                    colName.Contains("cauldron") || pName.Contains("cauldron") ||
+                    colName.Contains("plant") || pName.Contains("plant") ||
                     hit.collider.GetComponentInParent<ChestDialLock>() != null ||
                     hit.collider.GetComponentInParent<CandlePuzzle>() != null ||
                     hit.collider.GetComponentInParent<BookInteraction>() != null ||
                     hit.collider.GetComponentInParent<GrandfatherClockPuzzle>() != null ||
-                    hit.collider.GetComponentInParent<Room3MemoryPainting>() != null)
+                    hit.collider.GetComponentInParent<Room3MemoryPainting>() != null ||
+                    hit.collider.GetComponentInParent<CollectibleItem>() != null ||
+                    hit.collider.GetComponentInParent<AlchemyCauldron>() != null ||
+                    hit.collider.GetComponentInParent<QuickPlantRevive>() != null ||
+                    hit.collider.GetComponentInParent<MagicPlantPuzzle>() != null ||
+                    hit.collider.GetComponentInParent<StairsClimber>() != null ||
+                    hit.collider.GetComponentInParent<RoofExitTrigger>() != null ||
+                    hit.collider.GetComponentInParent<KeyInteraction>() != null ||
+                    hit.collider.GetComponentInParent<TrashCleaner>() != null)
                 {
                     return true;
                 }
