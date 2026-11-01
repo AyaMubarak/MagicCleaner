@@ -651,7 +651,7 @@ public class LevelProgressGuide : MonoBehaviour
     /// </summary>
     public void QuitToLevelsMenu()
     {
-        SaveProgress();
+        SaveProgress(); if (InventoryManager.Instance != null) { InventoryManager.Instance.SaveInventoryToDisk(); }
         PlayerPrefs.SetInt("OpenLevelsDirectly", 1);
         PlayerPrefs.Save();
         SceneManager.LoadScene(mainMenuSceneName);

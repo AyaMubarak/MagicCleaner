@@ -339,14 +339,13 @@ public class LevelsMenuManager : MonoBehaviour
                 button.onClick.RemoveAllListeners();
                 button.onClick.AddListener(() =>
                 {
-                    ResetSceneData(sceneName);
-                    StartCoroutine(LoadSceneFast(sceneName, button));
+                    OnLevelSelected(sceneName, button);
                 });
             }
 
             if (buttonText != null)
             {
-                buttonText.gameObject.SetActive(false);
+                buttonText.text = ""; buttonText.gameObject.SetActive(false); if (button != null) { var img = button.GetComponent<Image>(); if (img != null) img.enabled = false; foreach (var ct in button.GetComponentsInChildren<TextMeshProUGUI>(true)) ct.gameObject.SetActive(false); }
             }
         }
         else if (isUnlocked)
@@ -363,7 +362,7 @@ public class LevelsMenuManager : MonoBehaviour
             {
                 button.interactable = true;
                 button.onClick.RemoveAllListeners();
-                button.onClick.AddListener(() => StartCoroutine(LoadSceneFast(sceneName, button)));
+                button.onClick.AddListener(() => OnLevelSelected(sceneName, button));
             }
 
             if (buttonText != null)
@@ -561,6 +560,72 @@ public class LevelsMenuManager : MonoBehaviour
         }
     }
 
+    public bool IsLevelCompleted(string sceneName)
+    {
+        float pct = PlayerPrefs.GetFloat($"{sceneName}_ProgressPct", 0f);
+        if (pct >= 0.99f || Mathf.RoundToInt(pct * 100f) >= 100) return true;
+
+        if (sceneName == room1SceneName || sceneName == "Room1")
+        {
+            return PlayerPrefs.GetInt("Room1_Done", 0) == 1 || 
+                   PlayerPrefs.GetInt("Level1_Done", 0) == 1 || 
+                   PlayerPrefs.GetInt("Room1_DoorOpened", 0) == 1 || 
+                   PlayerPrefs.GetInt("Room1_Won", 0) == 1;
+        }
+        else if (sceneName == room2SceneName || sceneName == "Room2")
+        {
+            return PlayerPrefs.GetInt("Room2_Done", 0) == 1 || 
+                   PlayerPrefs.GetInt("Level2_Done", 0) == 1 || 
+                   PlayerPrefs.GetInt("Room2_Task_roof", 0) == 1;
+        }
+        else if (sceneName == room3SceneName || sceneName == "Room3")
+        {
+            return PlayerPrefs.GetInt("Room3_Done", 0) == 1 || 
+                   PlayerPrefs.GetInt("Level3_Done", 0) == 1 || 
+                   PlayerPrefs.GetInt("Room3_DoorOpened", 0) == 1;
+        }
+        return false;
+    }
+
+    private void OnLevelSelected(string sceneName, Button btn)
+    {
+        // Ø¥Ø°Ø§ Ø¶ØºØ· Ø§Ù„Ù„Ø§Ø¹Ø¨ Ø¹Ù„Ù‰ Ø§Ù„Ù…Ø±Ø­Ù„Ø© Ø§Ù„Ø£ÙˆÙ„Ù‰
+        if (sceneName == room1SceneName || sceneName == "Room1")
+        {
+            bool isL1Done = IsLevelCompleted(room1SceneName);
+            bool isL2Done = IsLevelCompleted(room2SceneName);
+            bool isL3Done = IsLevelCompleted(room3SceneName);
+
+            // Ø§Ù„Ø´Ø±Ø·: Ø¥Ø°Ø§ ÙƒØ§Ù†Øª Ø¬Ù…ÙŠØ¹ Ø§Ù„Ù…Ø±Ø§Ø­Ù„ Ù…ÙƒØªÙ…Ù„Ø© Completed ÙˆØ¶ØºØ· Ø¹Ù„Ù‰ Ø§Ù„Ù…Ø±Ø­Ù„Ø© Ø§Ù„Ø£ÙˆÙ„Ù‰ØŒ ØªØµØ¨Ø­ Ø¨Ø§Ù‚ÙŠ Ø§Ù„Ù…Ø±Ø§Ø­Ù„ Locked
+            if (isL1Done && isL2Done && isL3Done)
+            {
+                Debug.Log("<color=yellow>[LevelsMenu]:</color> Ø¬Ù…ÙŠØ¹ Ø§Ù„Ù…Ø±Ø§Ø­Ù„ Ù…ÙƒØªÙ…Ù„Ø© ÙˆØªÙ… Ø§Ø®ØªÙŠØ§Ø± Ø§Ù„Ù…Ø±Ø­Ù„Ø© Ø§Ù„Ø£ÙˆÙ„Ù‰ -> Ù‚ÙÙ„ ÙˆØªØµÙÙŠØ± Ø¨Ø§Ù‚ÙŠ Ø§Ù„Ù…Ø±Ø§Ø­Ù„ (Level 2 & 3 Locked)!");
+                ResetSceneData(room1SceneName);
+                ResetSceneData(room2SceneName);
+                ResetSceneData(room3SceneName);
+                PlayerPrefs.DeleteKey("Room2_Unlocked");
+                PlayerPrefs.DeleteKey("Level2_Unlocked");
+                PlayerPrefs.DeleteKey("Room3_Unlocked");
+                PlayerPrefs.DeleteKey("Level3_Unlocked");
+                PlayerPrefs.Save();
+                UpdateLevelsState();
+            }
+            else if (isL1Done)
+            {
+                // Ø¥Ø°Ø§ Ø£Ø¹Ø§Ø¯ Ø§Ù„Ù…Ø±Ø­Ù„Ø© Ø§Ù„Ø£ÙˆÙ„Ù‰ ÙÙ‚Ø·
+                ResetSceneData(room1SceneName);
+            }
+        }
+        else
+        {
+            if (IsLevelCompleted(sceneName))
+            {
+                ResetSceneData(sceneName);
+            }
+        }
+
+        StartCoroutine(LoadSceneFast(sceneName, btn));
+    }
     private IEnumerator LoadSceneFast(string sceneName, Button btn)
     {
         if (btn != null) btn.interactable = false;

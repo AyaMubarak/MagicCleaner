@@ -82,17 +82,17 @@ public class PlayerMovementController : MonoBehaviour
             input = new Vector2(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical"));
         }
 
-        // 1. الدوران لليمين واليسار عبر الجويستيك أو الكيبورد
-        if (Mathf.Abs(input.x) > 0.05f)
-        {
-            transform.Rotate(Vector3.up * input.x * rotateSpeed * Time.deltaTime);
-        }
-
-        // 2. الحركة للأمام والخلف مع منع اختراق الجدران
+        // 1. الحركة الجانبية (Strafe) والأمامية بالجويستيك في النصف الأيسر
+        // دوران الكاميرا مفصول بالكامل ومخصص للنصف الأيمن من الشاشة
+        //
+        //
+        //
+        //
+        // 2. الحركة الكاملة (أمام/خلف ويمين/يسار)
         Vector3 move = Vector3.zero;
-        if (Mathf.Abs(input.y) > 0.05f)
+        if (input.sqrMagnitude > 0.0025f)
         {
-            move = transform.forward * input.y * moveSpeed;
+            move = (transform.forward * input.y + transform.right * input.x) * moveSpeed;
         }
 
         // 3. دعم تدوير الكاميرا والحرية بالنظر باللمس والسحب (Swipe / Drag to Look)
@@ -110,57 +110,46 @@ public class PlayerMovementController : MonoBehaviour
         controller.Move((move + velocity) * Time.deltaTime);
     }
 
+    private bool isMouseLooking = false;
+
     private void HandleCameraSwipeLook()
     {
         if (playerCamera == null) playerCamera = Camera.main;
 
-        // دعم الماوس (في الـ Editor أو الكمبيوتر)
-        if (Input.GetMouseButtonDown(0))
+        // في حال استخدام شاشات اللمس (الهاتف أو Simulator) نعتمد على نظام اللمس لمنع تعارض الجويستيك مع الكاميرا
+        if (Input.touchCount > 0)
         {
-            if (CanLookAtPosition(Input.mousePosition))
-            {
-                lastLookPos = Input.mousePosition;
-            }
-            else
-            {
-                lastLookPos = Vector2.zero;
-            }
+            HandleTouchLook();
         }
-        else if (Input.GetMouseButton(0))
+        else
         {
-            if (lastLookPos != Vector2.zero && CanLookAtPosition(Input.mousePosition))
-            {
-                Vector2 currentPos = Input.mousePosition;
-                Vector2 delta = currentPos - lastLookPos;
-                lastLookPos = currentPos;
-
-                if (delta.sqrMagnitude > 0.01f && delta.sqrMagnitude < 2500f)
-                {
-                    transform.Rotate(Vector3.up * (delta.x * 0.16f), Space.World);
-
-                    if (playerCamera != null)
-                    {
-                        cameraPitch = Mathf.Clamp(cameraPitch - delta.y * 0.14f, -40f, 50f);
-                        playerCamera.transform.localRotation = Quaternion.Euler(cameraPitch, 0f, 0f);
-                    }
-                }
-            }
+            HandleMouseLook();
         }
-        else if (Input.GetMouseButtonUp(0))
-        {
-            lastLookPos = Vector2.zero;
-        }
+    }
 
-        // دعم شاشات اللمس (Mobile Touch)
+    private void HandleTouchLook()
+    {
         for (int i = 0; i < Input.touchCount; i++)
         {
             Touch t = Input.GetTouch(i);
-            if (!CanLookAtPosition(t.position)) continue;
+
+            // فصل قاطع: النصف الأيسر مخصص كلياً للجويستيك ومستحيل يحرك الكاميرا إطلاقاً
+            if (t.position.x < Screen.width * 0.5f)
+            {
+                if (t.fingerId == lookTouchId)
+                {
+                    lookTouchId = -1;
+                }
+                continue;
+            }
 
             if (t.phase == TouchPhase.Began && lookTouchId == -1)
             {
-                lookTouchId = t.fingerId;
-                lastLookPos = t.position;
+                if (IsInCameraLookArea(t.position) && CanLookAtPosition(t.position))
+                {
+                    lookTouchId = t.fingerId;
+                    lastLookPos = t.position;
+                }
             }
             else if (t.fingerId == lookTouchId)
             {
@@ -183,11 +172,56 @@ public class PlayerMovementController : MonoBehaviour
         }
     }
 
+    private void HandleMouseLook()
+    {
+        if (Input.GetMouseButtonDown(0))
+        {
+            // النصف الأيمن فقط؛ النصف الأيسر مستحيل يحرك الكاميرا
+            if (IsInCameraLookArea(Input.mousePosition) && CanLookAtPosition(Input.mousePosition))
+            {
+                isMouseLooking = true;
+                lastLookPos = Input.mousePosition;
+            }
+            else
+            {
+                isMouseLooking = false;
+                lastLookPos = Vector2.zero;
+            }
+        }
+        else if (Input.GetMouseButton(0) && isMouseLooking)
+        {
+            Vector2 currentPos = Input.mousePosition;
+            Vector2 delta = currentPos - lastLookPos;
+            lastLookPos = currentPos;
+
+            if (delta.sqrMagnitude > 0.01f && delta.sqrMagnitude < 2500f)
+            {
+                transform.Rotate(Vector3.up * (delta.x * 0.16f), Space.World);
+
+                if (playerCamera != null)
+                {
+                    cameraPitch = Mathf.Clamp(cameraPitch - delta.y * 0.14f, -40f, 50f);
+                    playerCamera.transform.localRotation = Quaternion.Euler(cameraPitch, 0f, 0f);
+                }
+            }
+        }
+        else if (Input.GetMouseButtonUp(0))
+        {
+            isMouseLooking = false;
+            lastLookPos = Vector2.zero;
+        }
+    }
+
     private bool CanLookAtPosition(Vector2 screenPos)
     {
-        if (IsOverJoystick(screenPos)) return false;
         if (IsPointerOverInteractivePuzzle(screenPos)) return false;
         return true;
+    }
+
+    private bool IsInCameraLookArea(Vector2 screenPos)
+    {
+        // تقسيم الشاشة: النصف الأيمن حصراً للكاميرا، النصف الأيسر مستحيل يحرك الكاميرا نهائياً
+        return screenPos.x >= Screen.width * 0.5f && !IsOverJoystick(screenPos);
     }
 
     private bool IsOverJoystick(Vector2 screenPos)
@@ -198,7 +232,6 @@ public class PlayerMovementController : MonoBehaviour
 
         return RectTransformUtility.RectangleContainsScreenPoint(rt, screenPos);
     }
-
     private bool IsPointerOverInteractivePuzzle(Vector2 screenPos)
     {
         // 1. فحص عناصر واجهة المستخدم النشطة (UI Canvas)

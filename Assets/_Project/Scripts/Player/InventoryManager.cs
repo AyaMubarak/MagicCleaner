@@ -36,7 +36,7 @@ public class InventoryManager : MonoBehaviour
     private bool isManuallyOpen = false;
     private int lastToggleFrame = -1;
 
-    private void Awake()
+    private void OnDisable() { SaveInventoryToDisk(); } private void Awake()
     {
         if (Instance == null) Instance = this;
         else Destroy(gameObject);
@@ -332,41 +332,295 @@ public class InventoryManager : MonoBehaviour
 
     public static Sprite GetPotionSprite()
     {
-        string p = System.IO.Path.Combine(Application.dataPath, "_Project/potion.png");
-        if (System.IO.File.Exists(p))
+        // 1. Ù…Ø­Ø§ÙˆÙ„Ø© Ø¬Ù„Ø¨ Ø§Ù„Ø£ÙŠÙ‚ÙˆÙ†Ø© Ø§Ù„Ø£ØµÙ„ÙŠØ© Ù…Ù† ÙˆØ¹Ø§Ø¡ Ø§Ù„Ø®ÙŠÙ…ÙŠØ§Ø¡ ÙÙŠ Ø§Ù„Ù…Ø´Ù‡Ø¯
+        AlchemyCauldron cauldron = FindFirstObjectByType<AlchemyCauldron>(FindObjectsInactive.Include);
+        if (cauldron != null)
         {
-            byte[] bytes = System.IO.File.ReadAllBytes(p);
-            Texture2D diskTex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-            diskTex.LoadImage(bytes);
-            return Sprite.Create(diskTex, new Rect(0, 0, diskTex.width, diskTex.height), new Vector2(0.5f, 0.5f));
+            var field = typeof(AlchemyCauldron).GetField("resultItemIcon", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+            if (field != null)
+            {
+                Sprite s = field.GetValue(cauldron) as Sprite;
+                if (s != null) return s;
+            }
         }
-        return null;
+
+        // 2. Ù…Ø­Ø§ÙˆÙ„Ø© Ø§Ù„ØªØ­Ù…ÙŠÙ„ Ù…Ù† Resources ÙƒÙ€ Sprite Ø£Ùˆ Texture2D
+        Sprite resSprite = Resources.Load<Sprite>("potion") 
+                        ?? Resources.Load<Sprite>("potion_icon")
+                        ?? Resources.Load<Sprite>("acid_potion")
+                        ?? Resources.Load<Sprite>("AcidPotion");
+        if (resSprite != null) return resSprite;
+
+        Texture2D tex = Resources.Load<Texture2D>("potion") 
+                     ?? Resources.Load<Texture2D>("potion_icon")
+                     ?? Resources.Load<Texture2D>("acid_potion")
+                     ?? Resources.Load<Texture2D>("AcidPotion");
+        if (tex != null)
+        {
+            return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+        }
+
+        // 3. Ù‚Ø±Ø§Ø¡Ø© Ø§Ù„Ù…Ù„Ù Ù…Ù† Ø§Ù„Ù‚Ø±Øµ Ø¥Ù† ÙˆØ¬Ø¯
+        string[] paths = new string[]
+        {
+            System.IO.Path.Combine(Application.dataPath, "_Project/potion.png"),
+            System.IO.Path.Combine(Application.dataPath, "_Project/Resources/potion.png")
+        };
+        foreach (string p in paths)
+        {
+            if (System.IO.File.Exists(p))
+            {
+                byte[] bytes = System.IO.File.ReadAllBytes(p);
+                Texture2D diskTex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (diskTex.LoadImage(bytes))
+                {
+                    return Sprite.Create(diskTex, new Rect(0, 0, diskTex.width, diskTex.height), new Vector2(0.5f, 0.5f));
+                }
+            }
+        }
+
+        return CreateProceduralPotionSprite();
     }
 
     public static Sprite GetBottleSprite()
     {
-        string p = System.IO.Path.Combine(Application.dataPath, "_Project/bottle.png");
-        if (System.IO.File.Exists(p))
+        // 1. Ù…Ø­Ø§ÙˆÙ„Ø© Ø¬Ù„Ø¨ Ø§Ù„Ø£ÙŠÙ‚ÙˆÙ†Ø© Ø§Ù„Ø£ØµÙ„ÙŠØ© Ù…Ù† Ø§Ù„Ù‚Ø§Ø±ÙˆØ±Ø© ÙÙŠ Ø§Ù„Ù…Ø´Ù‡Ø¯
+        CollectibleItem[] items = FindObjectsByType<CollectibleItem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        if (items != null)
         {
-            byte[] bytes = System.IO.File.ReadAllBytes(p);
-            Texture2D diskTex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-            diskTex.LoadImage(bytes);
-            return Sprite.Create(diskTex, new Rect(0, 0, diskTex.width, diskTex.height), new Vector2(0.5f, 0.5f));
+            foreach (var it in items)
+            {
+                if (it != null && (it.ItemID.IndexOf("flask", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                   it.ItemID.IndexOf("bottle", System.StringComparison.OrdinalIgnoreCase) >= 0))
+                {
+                    var field = typeof(CollectibleItem).GetField("itemIcon", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+                    if (field != null)
+                    {
+                        Sprite s = field.GetValue(it) as Sprite;
+                        if (s != null) return s;
+                    }
+                }
+            }
         }
-        return null;
+
+        // 2. Ù…Ø­Ø§ÙˆÙ„Ø© Ø§Ù„ØªØ­Ù…ÙŠÙ„ Ù…Ù† Resources ÙƒÙ€ Sprite Ø£Ùˆ Texture2D
+        Sprite resSprite = Resources.Load<Sprite>("bottle") 
+                        ?? Resources.Load<Sprite>("bottle_icon")
+                        ?? Resources.Load<Sprite>("water_flask")
+                        ?? Resources.Load<Sprite>("WaterFlask");
+        if (resSprite != null) return resSprite;
+
+        Texture2D tex = Resources.Load<Texture2D>("bottle") 
+                     ?? Resources.Load<Texture2D>("bottle_icon")
+                     ?? Resources.Load<Texture2D>("water_flask")
+                     ?? Resources.Load<Texture2D>("WaterFlask");
+        if (tex != null)
+        {
+            return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+        }
+
+        // 3. Ù‚Ø±Ø§Ø¡Ø© Ø§Ù„Ù…Ù„Ù Ù…Ù† Ø§Ù„Ù‚Ø±Øµ Ø¥Ù† ÙˆØ¬Ø¯
+        string[] paths = new string[]
+        {
+            System.IO.Path.Combine(Application.dataPath, "_Project/bottle.png"),
+            System.IO.Path.Combine(Application.dataPath, "_Project/Resources/bottle.png")
+        };
+        foreach (string p in paths)
+        {
+            if (System.IO.File.Exists(p))
+            {
+                byte[] bytes = System.IO.File.ReadAllBytes(p);
+                Texture2D diskTex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (diskTex.LoadImage(bytes))
+                {
+                    return Sprite.Create(diskTex, new Rect(0, 0, diskTex.width, diskTex.height), new Vector2(0.5f, 0.5f));
+                }
+            }
+        }
+
+        return CreateProceduralBottleSprite();
     }
 
     public static Sprite GetMortarSprite()
     {
-        string p = System.IO.Path.Combine(Application.dataPath, "_Project/mortar.png");
-        if (System.IO.File.Exists(p))
+        // 1. Ù…Ø­Ø§ÙˆÙ„Ø© Ø¬Ù„Ø¨ Ø§Ù„Ø£ÙŠÙ‚ÙˆÙ†Ø© Ø§Ù„Ø£ØµÙ„ÙŠØ© Ù…Ù† Ø§Ù„Ø£Ø¹Ø´Ø§Ø¨ ÙÙŠ Ø§Ù„Ù…Ø´Ù‡Ø¯
+        CollectibleItem[] items = FindObjectsByType<CollectibleItem>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        if (items != null)
         {
-            byte[] bytes = System.IO.File.ReadAllBytes(p);
-            Texture2D diskTex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-            diskTex.LoadImage(bytes);
-            return Sprite.Create(diskTex, new Rect(0, 0, diskTex.width, diskTex.height), new Vector2(0.5f, 0.5f));
+            foreach (var it in items)
+            {
+                if (it != null && (it.ItemID.IndexOf("herb", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                   it.ItemID.IndexOf("mortar", System.StringComparison.OrdinalIgnoreCase) >= 0))
+                {
+                    var field = typeof(CollectibleItem).GetField("itemIcon", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public);
+                    if (field != null)
+                    {
+                        Sprite s = field.GetValue(it) as Sprite;
+                        if (s != null) return s;
+                    }
+                }
+            }
         }
-        return null;
+
+        // 2. Ù…Ø­Ø§ÙˆÙ„Ø© Ø§Ù„ØªØ­Ù…ÙŠÙ„ Ù…Ù† Resources ÙƒÙ€ Sprite Ø£Ùˆ Texture2D
+        Sprite resSprite = Resources.Load<Sprite>("mortar") 
+                        ?? Resources.Load<Sprite>("mortar_icon")
+                        ?? Resources.Load<Sprite>("herb")
+                        ?? Resources.Load<Sprite>("Herb");
+        if (resSprite != null) return resSprite;
+
+        Texture2D tex = Resources.Load<Texture2D>("mortar") 
+                     ?? Resources.Load<Texture2D>("mortar_icon")
+                     ?? Resources.Load<Texture2D>("herb")
+                     ?? Resources.Load<Texture2D>("Herb");
+        if (tex != null)
+        {
+            return Sprite.Create(tex, new Rect(0, 0, tex.width, tex.height), new Vector2(0.5f, 0.5f));
+        }
+
+        // 3. Ù‚Ø±Ø§Ø¡Ø© Ø§Ù„Ù…Ù„Ù Ù…Ù† Ø§Ù„Ù‚Ø±Øµ Ø¥Ù† ÙˆØ¬Ø¯
+        string[] paths = new string[]
+        {
+            System.IO.Path.Combine(Application.dataPath, "_Project/mortar.png"),
+            System.IO.Path.Combine(Application.dataPath, "_Project/Resources/mortar.png")
+        };
+        foreach (string p in paths)
+        {
+            if (System.IO.File.Exists(p))
+            {
+                byte[] bytes = System.IO.File.ReadAllBytes(p);
+                Texture2D diskTex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+                if (diskTex.LoadImage(bytes))
+                {
+                    return Sprite.Create(diskTex, new Rect(0, 0, diskTex.width, diskTex.height), new Vector2(0.5f, 0.5f));
+                }
+            }
+        }
+
+        return CreateProceduralMortarSprite();
+    }
+
+    public static Sprite CreateProceduralPotionSprite()
+    {
+        const int size = 128;
+        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        Color[] cols = new Color[size * size];
+        for (int i = 0; i < cols.Length; i++) cols[i] = Color.clear;
+
+        Vector2 center = new Vector2(64f, 48f);
+        Color liquidColor = new Color(0.85f, 0.20f, 0.85f, 0.95f);
+        Color liquidHighlight = new Color(1.0f, 0.60f, 1.0f, 1f);
+        Color glassEdge = new Color(0.9f, 0.95f, 1.0f, 0.9f);
+        Color corkColor = new Color(0.6f, 0.4f, 0.2f, 1f);
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                Vector2 pos = new Vector2(x, y);
+                float dist = Vector2.Distance(pos, center);
+
+                if (x >= 54 && x <= 74 && y >= 72 && y <= 104)
+                {
+                    if (y > 92) cols[y * size + x] = corkColor;
+                    else if (x == 54 || x == 74) cols[y * size + x] = glassEdge;
+                    else cols[y * size + x] = liquidColor;
+                }
+                else if (dist <= 38f)
+                {
+                    if (dist >= 35f) cols[y * size + x] = glassEdge;
+                    else if (dist < 18f && x < 58 && y > 46) cols[y * size + x] = liquidHighlight;
+                    else cols[y * size + x] = liquidColor;
+                }
+            }
+        }
+        tex.SetPixels(cols);
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+    }
+
+    public static Sprite CreateProceduralBottleSprite()
+    {
+        const int size = 128;
+        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        Color[] cols = new Color[size * size];
+        for (int i = 0; i < cols.Length; i++) cols[i] = Color.clear;
+
+        Color glassEdge = new Color(0.75f, 0.90f, 1.0f, 0.9f);
+        Color waterColor = new Color(0.18f, 0.60f, 0.95f, 0.9f);
+        Color highlight = new Color(0.85f, 0.98f, 1.0f, 0.95f);
+        Color cork = new Color(0.55f, 0.38f, 0.22f, 1f);
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                if (x >= 55 && x <= 73 && y >= 100 && y <= 112)
+                {
+                    cols[y * size + x] = cork;
+                }
+                else if (x >= 56 && x <= 72 && y >= 75 && y < 100)
+                {
+                    if (x == 56 || x == 72) cols[y * size + x] = glassEdge;
+                    else cols[y * size + x] = waterColor;
+                }
+                else if (x >= 40 && x <= 88 && y >= 20 && y < 75)
+                {
+                    if (x == 40 || x == 88 || y == 20) cols[y * size + x] = glassEdge;
+                    else if (x >= 46 && x <= 50 && y >= 30 && y <= 65) cols[y * size + x] = highlight;
+                    else cols[y * size + x] = waterColor;
+                }
+            }
+        }
+        tex.SetPixels(cols);
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+    }
+
+    public static Sprite CreateProceduralMortarSprite()
+    {
+        const int size = 128;
+        Texture2D tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        Color[] cols = new Color[size * size];
+        for (int i = 0; i < cols.Length; i++) cols[i] = Color.clear;
+
+        Color bowlWood = new Color(0.52f, 0.35f, 0.20f, 1f);
+        Color bowlDark = new Color(0.35f, 0.22f, 0.12f, 1f);
+        Color leafGreen = new Color(0.20f, 0.78f, 0.30f, 1f);
+        Color leafLight = new Color(0.55f, 0.90f, 0.40f, 1f);
+
+        Vector2 bowlCenter = new Vector2(64f, 55f);
+
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                Vector2 p = new Vector2(x, y);
+                float dist = Vector2.Distance(p, bowlCenter);
+
+                if (dist <= 36f && y <= 55)
+                {
+                    if (dist >= 32f || y == 55) cols[y * size + x] = bowlDark;
+                    else cols[y * size + x] = bowlWood;
+                }
+                else if (x >= 50 && x <= 78 && y >= 15 && y <= 22)
+                {
+                    cols[y * size + x] = bowlDark;
+                }
+                else if (y > 50 && y < 90 && x >= 42 && x <= 86)
+                {
+                    float leafD1 = Vector2.Distance(p, new Vector2(54f, 68f));
+                    float leafD2 = Vector2.Distance(p, new Vector2(74f, 72f));
+                    if (leafD1 <= 15f || leafD2 <= 14f)
+                    {
+                        cols[y * size + x] = (x < 64) ? leafGreen : leafLight;
+                    }
+                }
+            }
+        }
+        tex.SetPixels(cols);
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
     }
 
     public static Sprite ResolveItemIcon(string itemId)
@@ -818,9 +1072,24 @@ public class InventoryManager : MonoBehaviour
 
             if (i < inventoryItems.Count)
             {
-                // خانة ممتلئة بعنصر حقيقي
-                slotIcons[i].gameObject.SetActive(true);
-                slotIcons[i].sprite = inventoryItems[i].icon;
+                // Ensure valid icon and avoid white box fallback
+                if (inventoryItems[i].icon == null)
+                {
+                    inventoryItems[i].icon = ResolveItemIcon(inventoryItems[i].id);
+                }
+
+                if (inventoryItems[i].icon != null)
+                {
+                    slotIcons[i].gameObject.SetActive(true);
+                    slotIcons[i].sprite = inventoryItems[i].icon;
+                }
+                else
+                {
+                    slotIcons[i].sprite = null;
+                    slotIcons[i].color = new Color(0, 0, 0, 0);
+                    slotIcons[i].gameObject.SetActive(false);
+                    continue;
+                }
                 
                 bool isThisSelected = !string.IsNullOrEmpty(SelectedItem) && 
                     inventoryItems[i].id.Equals(SelectedItem, System.StringComparison.OrdinalIgnoreCase);
